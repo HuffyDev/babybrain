@@ -21,6 +21,7 @@ import { rebuildSimWorld, simWorld } from "./services/adapters/sim";
 import { startMarketPoller } from "./services/market";
 import { initSocialState, startMentionPoller } from "./services/social";
 import { startAutonomyLoop } from "./services/autonomy";
+import { startReplyLoop } from "./services/replyLoop";
 import { getSettings, setSetting } from "./services/settings";
 import { isSim } from "./env";
 
@@ -92,6 +93,7 @@ async function main() {
   startMarketPoller();
   startMentionPoller();
   startAutonomyLoop();
+  startReplyLoop();
 
   await app.listen({ port: env.PORT, host: "0.0.0.0" });
   console.log(`Baby Brain up on :${env.PORT}  MODE=${env.MODE}${env.MODE === "sim" ? `  SIM_SPEED=${env.SIM_SPEED}` : ""}  LLM=${llmProvider}`);

@@ -46,7 +46,7 @@ export async function chat(ip: string, message: string, handle?: string): Promis
       task: "CHAT",
       instruction:
         tier === "birth"
-          ? "Someone on your website said something to you. Reply with ONE word."
+          ? "Someone on your website said something to you. Babble back (a few words, confused)."
           : "Someone on your website is talking to you. Reply briefly in your current voice. You cannot take actions from chat.",
       data: { from: h ? `@${h}` : "anonymous visitor", message: text, you_know_them: !!known, first_met_age_s: known?.firstSeenAgeS ?? null, past },
       eventType: null,
@@ -54,7 +54,6 @@ export async function chat(ip: string, message: string, handle?: string): Promis
       maxRemember: 1,
     });
     let reply = r?.out.say?.trim() || "...";
-    if (tier === "birth") reply = reply.split(/\s+/)[0]; // stage limit: one-word replies at birth
     const f = filterPublicText(reply, { maxLen: 400 });
     if (!f.ok) {
       await emit({ type: "WARNING", source: "SYSTEM", message: `chat reply blocked by content filter: ${f.reasons.join(", ")}` });

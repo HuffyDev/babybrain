@@ -23,13 +23,13 @@ function step(
  */
 const raw = [
   // ── FIRST HOUR (all wired) ────────────────────────────────────────────────
-  step(0, "birth", "NEONATAL", "BIRTH", "BIRTH", "Boot, first breath, first post.", ["POST_X", "CHAT_WEB"]),
+  step(0, "birth", "NEONATAL", "BIRTH", "BIRTH", "Boot, first breath, first post. Can already hear and babble back on X.", ["POST_X", "CHAT_WEB", "READ_X", "REPLY_X"]),
   step(2 * M, "self_discovery", "NEONATAL", "SELF_DISCOVERY", "SELF-DISCOVERY", "Learns what token it is: supply, mcap, price, liquidity, treasury.", ["READ_TOKEN"]),
   step(4 * M, "first_action", "NEONATAL", "FIRST_BUYBACK", "FIRST ACTION", "Learns what a buyback is and makes its first one (fixed 0.2 SOL).", ["EXECUTE_BUYBACK"]),
   step(6 * M, "holders", "NEONATAL", "HOLDERS", "HOLDERS", "Sees who holds it: count, top holders, concentration, recent buyers.", ["READ_HOLDERS"]),
   step(8 * M, "selling", "NEONATAL", "SELLING", "SELLING", "Discovers selling. Looks at the largest real recent sell.", ["READ_TRADES"]),
-  step(10 * M, "social_cortex", "NEONATAL", "SOCIAL_CORTEX", "SOCIAL CORTEX", "Starts reading X mentions and ranking them.", ["READ_X"]),
-  step(12 * M, "first_reply", "NEONATAL", "FIRST_REPLY", "FIRST REPLY", "Replies to a real top-ranked mention.", ["REPLY_X"]),
+  step(10 * M, "social_cortex", "NEONATAL", "SOCIAL_CORTEX", "SOCIAL CORTEX", "Starts to understand who is talking to it and why."),
+  step(12 * M, "first_reply", "NEONATAL", "FIRST_REPLY", "FIRST REAL CONVERSATION", "First reply that actually makes sense."),
   step(14 * M, "memory", "NEONATAL", "MEMORY_BACKFILL", "MEMORY", "Long-term memory comes online; backfills its first 14 minutes.", ["LONG_TERM_MEMORY", "RECOGNIZE_USERS"]),
   step(16 * M, "language", "NEONATAL", "LANGUAGE", "LANGUAGE", "Picks up crypto slang from mentions and chat.", ["LEARN_SLANG"]),
   step(18 * M, "market_vision", "NEONATAL", "MARKET_VISION", "MARKET VISION", "Computes market metrics: volume Δ, buy/sell ratio, sell share, concentration Δ.", ["ANALYZE_MARKET"]),

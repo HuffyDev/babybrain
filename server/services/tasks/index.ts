@@ -76,7 +76,7 @@ const handlers: Partial<Record<TaskType, Handler>> = {
   // T+0
   async BIRTH() {
     await sys("BIRTH", "neural substrate online · heartbeat detected");
-    await sys("BIRTH", "capabilities online: POST_X (birth post only), CHAT_WEB (one-word replies)");
+    await sys("BIRTH", "capabilities online: POST_X, CHAT_WEB, READ_X, REPLY_X (it can hear you — it just doesn't understand yet)");
     const res = await postToX("hi", { summary: "first words" }); // the one hardcoded line (spec rule 2)
     await emit({ type: "BIRTH", source: "BABY", message: "hi", proofUrl: res.url ?? null });
     if (!res.ok) await sys("WARNING", `birth post not sent: ${res.reason}`);
@@ -156,7 +156,7 @@ const handlers: Partial<Record<TaskType, Handler>> = {
     if (top[0]) await sys("SOCIAL", `top ranked: ${top.map((m) => `@${m.handle} (${(m.rank ?? 0).toFixed(2)})`).join(", ")}`);
     await runTask({
       task: "SOCIAL_CORTEX",
-      instruction: "You can now hear people talking to you on X for the first time. React to what they are saying (top ranked mentions below). Do not reply yet.",
+      instruction: "You have been hearing people on X since birth, but now you finally start to understand who they are and why they talk to you. React to the top mentions below. Do not reply here.",
       data: { mention_count: n, top_mentions: top.map((m) => ({ handle: m.handle, text: m.text, rank: m.rank, followers: m.followers })) },
       eventType: "SOCIAL",
     });
@@ -173,7 +173,7 @@ const handlers: Partial<Record<TaskType, Handler>> = {
     await sys("SOCIAL", `REPLY_X → selected @${m.handle} (rank ${(m.rank ?? 0).toFixed(2)}): "${m.text}"`);
     const r = await runTask({
       task: "FIRST_REPLY",
-      instruction: "Write your first ever reply on X, to this mention. Set reply_to_mention_id to its id.",
+      instruction: "Your brain just clicked: write your first reply on X that actually makes sense, to this mention. Set reply_to_mention_id to its id.",
       data: { mention: { id: m.id, handle: m.handle, text: m.text, followers: m.followers } },
       allow: { reply: true },
       eventType: "SOCIAL",

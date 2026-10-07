@@ -169,7 +169,7 @@ export class SimWorld {
     this.schedule.sort((a, b) => a.t - b.t);
 
     // ── mentions ──
-    let mt = 70;
+    let mt = 15; // people start tagging the bot within seconds of launch
     let n = 1;
     const followers = new Map(HANDLES.map((h) => [h, Math.floor(Math.exp(3 + r() * 6))]));
     followers.set("early_anon", 2400);

@@ -35,7 +35,7 @@ export interface Allow {
 }
 
 export interface RunInput {
-  task: TaskType | "CHAT" | "AUTONOMY_LOOP";
+  task: TaskType | "CHAT" | "AUTONOMY_LOOP" | "REPLY_LOOP";
   /** What this step asks of Baby. Instructions only — never Baby's words. */
   instruction: string;
   /** Live data payload fed to the model. */

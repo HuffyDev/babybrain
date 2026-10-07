@@ -24,7 +24,8 @@ export const AUTONOMY = {
   MIN_INTERVAL_S: 45,
   MAX_INTERVAL_S: 90,
   MIN_SECONDS_BETWEEN_AUTONOMOUS_POSTS: 180,
-  MIN_SECONDS_BETWEEN_REPLIES: 60,
+  /** shared cap for every X reply; the reply loop also runs on this interval */
+  MIN_SECONDS_BETWEEN_REPLIES: num("MIN_SECONDS_BETWEEN_REPLIES", 60),
 } as const;
 
 /** Program IDs a buyback transaction may touch (checked by the executor before signing). */

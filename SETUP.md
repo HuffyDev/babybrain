@@ -52,6 +52,7 @@ Every variable is listed in [`.env.example`](./.env.example) with a placeholder.
 | `TREASURY_PRIVATE_KEY` | — | **required** | That wallet's base58 secret key, e.g. Phantom → Export Private Key, or `solana-keygen new` then base58-encode. **Only** `server/services/adapters/live/executor.ts` reads it, and it is checked against `TREASURY_PUBKEY`. |
 | `MAX_BUYBACK_SOL_PER_TX` … `MAX_SLIPPAGE_BPS` | optional | tune | Guardian limits. Defaults are in [`server/config/limits.ts`](./server/config/limits.ts) (0.5 per tx, 2/hour, 5/day, 3 SOL reserve, 240s cooldown, 500 bps). |
 | `FIRST_BUYBACK_SOL` | optional | optional | Fixed amount for the T+4 first buyback (default 0.2). |
+| `MIN_SECONDS_BETWEEN_REPLIES` | optional | optional | Reply pace (default 60). Baby replies on X from birth, at most one reply per this many seconds; the reply loop runs on the same interval. Each reply costs `X_COST_POST_USD`, so at the default about 60 replies/hour ≈ $0.90/hour + mention reads. Size `X_DAILY_BUDGET_USD` accordingly. |
 | `TRUST_PROXY_HOPS` | optional | optional | Reverse proxies in front of the app (Replit = 1). Used to get the real client IP for chat rate limits. |
 
 Fund the treasury with at least `MIN_TREASURY_RESERVE_SOL` plus the amount you're willing to spend (for example 3 + 5 SOL with the defaults).
@@ -152,6 +153,7 @@ server/
     llm.ts / mockLLM.ts    Anthropic SDK structured outputs / keyless placeholder (sim only)
     tasks/index.ts         one handler per timeline task
     autonomy.ts            from T+12: observe → detect change → decide → Guardian → act (caps enforced)
+    replyLoop.ts           from birth: replies to the best unanswered mention every MIN_SECONDS_BETWEEN_REPLIES
     guardian.ts            pure deterministic evaluate(proposal, state) — unit tested
     proposals.ts flows.ts  propose → review → (re-propose once) → execute
     executor.ts            Guardian re-check + kill switch → adapter.buyback → action row with proof
