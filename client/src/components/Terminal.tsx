@@ -2,112 +2,189 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { EventType, PublicEvent, Source } from "@shared/types";
 import { useStore } from "../store";
 import { timeOf } from "../format";
+import { Icon, Module } from "./ui";
 
-export const TYPE_COLOR: Record<EventType, string> = {
-  BIRTH: "#ffffff",
-  SYSTEM: "#7d8590",
-  LEARN: "#8fd3ff",
-  MEMORY: "#b9c7d6",
-  SOCIAL: "#6fe3ff",
-  MARKET: "#f2d18b",
-  DECISION: "#e6f4ff",
-  GUARDIAN: "#ffb4a2",
-  ACTION: "#a6f0c6",
-  DEVELOPMENT: "#c8e6ff",
-  WARNING: "#ff6b6b",
-  CHAT: "#d7dde4",
+/** Type → treatment. Monochrome hierarchy; red is reserved for warnings. */
+const TYPE_STYLE: Record<EventType, { label: string; cls: string }> = {
+  BIRTH: { label: "BIRTH", cls: "text-ink font-semibold" },
+  DEVELOPMENT: { label: "DEVELOP", cls: "text-ink font-semibold" },
+  LEARN: { label: "LEARN", cls: "text-silver" },
+  MEMORY: { label: "MEMORY", cls: "text-silver" },
+  SOCIAL: { label: "SOCIAL", cls: "text-silver" },
+  MARKET: { label: "MARKET", cls: "text-silver" },
+  DECISION: { label: "DECISION", cls: "text-ink" },
+  GUARDIAN: { label: "GUARDIAN", cls: "text-ink" },
+  ACTION: { label: "ACTION", cls: "text-ink" },
+  SYSTEM: { label: "SYSTEM", cls: "text-mute" },
+  WARNING: { label: "WARNING", cls: "text-alarm font-semibold" },
+  CHAT: { label: "CHAT", cls: "text-silver" },
 };
+export const TYPE_COLOR = Object.fromEntries(Object.keys(TYPE_STYLE).map((k) => [k, "#fff"])) as Record<EventType, string>;
+
+const SOURCES: Source[] = ["BABY", "SYSTEM", "GUARDIAN", "HUMAN"];
 
 export function SourceBadge({ source }: { source: Source }) {
   const cls: Record<Source, string> = {
-    BABY: "bg-ice/90 text-black border-ice",
+    BABY: "bg-ink text-black border-ink",
     SYSTEM: "text-dim border-line2",
-    GUARDIAN: "text-salmon border-salmon/50",
+    GUARDIAN: "text-ink border-white/60 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25)]",
     HUMAN: "bg-alarm text-black border-alarm",
   };
-  return <span className={`inline-block shrink-0 self-start mt-[3px] rounded-[2px] border px-1 py-px font-mono text-[9px] leading-none tracking-wider ${cls[source]}`}>{source}</span>;
+  return (
+    <span className={`inline-flex h-[18px] w-[66px] shrink-0 items-center justify-center rounded-[2px] border font-mono text-[9px] leading-none tracking-[0.14em] ${cls[source]}`} title={`source: ${source}`}>
+      {source}
+    </span>
+  );
 }
 
-const ALL: EventType[] = Object.keys(TYPE_COLOR) as EventType[];
+const ageStamp = (s: number | null) => {
+  if (s === null) return "—";
+  const m = Math.floor(s / 60);
+  return m >= 60 ? `T+${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `T+${String(m).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+};
 
 export function Terminal() {
   const events = useStore((s) => s.events);
-  const [filter, setFilter] = useState<EventType | "ALL">("ALL");
-  const [babyOnly, setBabyOnly] = useState(false);
+  const connected = useStore((s) => s.connected);
+  const [type, setType] = useState<EventType | "ALL">("ALL");
+  const [source, setSource] = useState<Source | "ALL">("ALL");
   const box = useRef<HTMLDivElement>(null);
-  const stick = useRef(true);
+  const [stuck, setStuck] = useState(true);
+  // only events that arrive after the initial load animate in
+  const baseline = useRef<number | null>(null);
+  if (baseline.current === null && events.length) baseline.current = events[events.length - 1].id;
 
-  const shown = useMemo(
-    () => events.filter((e) => (filter === "ALL" || e.type === filter) && (!babyOnly || e.source === "BABY")),
-    [events, filter, babyOnly],
-  );
+  const shown = useMemo(() => events.filter((e) => (type === "ALL" || e.type === type) && (source === "ALL" || e.source === source)), [events, type, source]);
+  const present = useMemo(() => new Set(events.map((e) => e.type)), [events]);
 
   useEffect(() => {
     const el = box.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [shown.length]);
+    if (el && stuck) el.scrollTop = el.scrollHeight;
+  }, [shown.length, stuck]);
+
+  const jump = () => {
+    setStuck(true);
+    box.current?.scrollTo({ top: box.current.scrollHeight, behavior: "smooth" });
+  };
 
   return (
-    <section id="activity" className="mx-auto max-w-7xl px-4 py-10">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="section-title">Live Terminal</h2>
-        <div className="flex flex-wrap items-center gap-1">
-          <select
-            aria-label="Filter event type"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as EventType | "ALL")}
-            className="rounded-sm border border-line bg-panel px-2 py-1 font-mono text-[11px] text-ink"
-          >
-            <option value="ALL">ALL TYPES</option>
-            {ALL.map((t) => (
-              <option key={t}>{t}</option>
+    <Module
+      id="activity"
+      index="04"
+      title="Live event console"
+      meta={
+        <span className="inline-flex items-center gap-2">
+          <span className={`dot ${connected ? "dot-live text-ink" : "text-alarm"}`} />
+          <span className="tnum">{events.length} events</span>
+        </span>
+      }
+    >
+      <div className="panel overflow-hidden">
+        {/* toolbar */}
+        <div className="flex flex-col gap-2 border-b border-line px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div role="group" aria-label="Filter by source" className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1">
+            {(["ALL", ...SOURCES] as const).map((s) => (
+              <button key={s} className="chip" aria-pressed={source === s} onClick={() => setSource(s)}>
+                {s === "ALL" ? "All sources" : s}
+              </button>
             ))}
-          </select>
-          <button
-            onClick={() => setBabyOnly((v) => !v)}
-            className={`rounded-sm border px-2 py-1 font-mono text-[11px] ${babyOnly ? "border-ice text-ice" : "border-line text-dim"}`}
+          </div>
+          <label className="flex items-center gap-2">
+            <span className="sr-only">Filter by event type</span>
+            <select value={type} onChange={(e) => setType(e.target.value as EventType | "ALL")} className="field h-[34px] min-h-0 py-0 text-[11px] tracking-[0.12em] uppercase">
+              <option value="ALL">All types</option>
+              {(Object.keys(TYPE_STYLE) as EventType[]).map((t) => (
+                <option key={t} value={t} disabled={!present.has(t)}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {/* column header (desktop) */}
+        <div className="hidden grid-cols-[72px_64px_84px_74px_1fr] gap-3 border-b border-line px-4 py-2 font-mono text-[9px] tracking-[0.2em] text-mute uppercase md:grid">
+          <span>Time</span>
+          <span>Age</span>
+          <span>Type</span>
+          <span>Source</span>
+          <span>Event</span>
+        </div>
+
+        <div className="relative">
+          <div
+            ref={box}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setStuck(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+            }}
+            className="scroll-thin h-[420px] overflow-y-auto font-mono text-[12px] sm:h-[480px]"
+            role="log"
+            aria-live="polite"
+            aria-label="Live events"
           >
-            BABY ONLY
-          </button>
+            {shown.length === 0 && (
+              <div className="grid h-full place-items-center px-6 text-center">
+                <div>
+                  <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full border border-line2 text-dim">
+                    <Icon name="pulse" />
+                  </div>
+                  <div className="font-mono text-[11px] tracking-[0.2em] text-silver uppercase">
+                    {events.length ? "No events match these filters" : "Awaiting first signal"}
+                    <span className="blink">_</span>
+                  </div>
+                  <div className="mt-1 text-[13px] text-dim">{events.length ? "Clear a filter to see the full log." : "Events appear here the moment the specimen does anything."}</div>
+                </div>
+              </div>
+            )}
+            {shown.map((e) => (
+              <Row key={e.id} e={e} animate={baseline.current !== null && e.id > baseline.current} />
+            ))}
+          </div>
+          {!stuck && shown.length > 0 && (
+            <button onClick={jump} className="btn btn-solid absolute bottom-3 right-3 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+              <Icon name="down" className="h-3.5 w-3.5" /> Latest
+            </button>
+          )}
         </div>
       </div>
-      <div
-        ref={box}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-        }}
-        className="terminal-scroll panel h-[360px] overflow-y-auto bg-black/60 p-2 font-mono text-[11px] leading-relaxed sm:h-[440px] sm:p-3 sm:text-[12px]"
-      >
-        {shown.length === 0 && <div className="text-mute">no signal yet<span className="blink">_</span></div>}
-        {shown.map((e) => (
-          <Line key={e.id} e={e} />
-        ))}
-      </div>
-    </section>
+    </Module>
   );
 }
 
-function Line({ e }: { e: PublicEvent }) {
-  const color = TYPE_COLOR[e.type] ?? "#ccc";
+function Row({ e, animate }: { e: PublicEvent; animate: boolean }) {
+  const t = TYPE_STYLE[e.type] ?? { label: e.type, cls: "text-silver" };
+  const baby = e.source === "BABY";
+  const warn = e.type === "WARNING" || e.source === "HUMAN";
+  const reasoning = typeof e.data?.reasoning === "string" && e.data.reasoning ? (e.data.reasoning as string) : null;
   return (
-    <div className="flex gap-2 border-b border-white/[0.03] py-[3px]">
-      <span className="hidden shrink-0 text-mute sm:inline">{timeOf(e.ts)}</span>
-      <span className="w-[84px] shrink-0 sm:w-[96px]" style={{ color }}>
-        [{e.type}]
-      </span>
-      <SourceBadge source={e.source} />
-      <span className={`min-w-0 flex-1 break-words ${e.source === "BABY" ? "text-ink" : "text-dim"}`}>
-        {e.message}
-        {typeof e.data?.reasoning === "string" && e.data.reasoning && (
-          <span className="block text-[11px] text-mute">↳ {e.data.reasoning as string}</span>
-        )}
+    <div
+      className={`${animate ? "term-row" : ""} grid grid-cols-[1fr] gap-1.5 border-b border-white/[0.045] px-3 py-2.5 md:grid-cols-[72px_64px_84px_74px_1fr] md:gap-3 md:px-4 ${warn ? "border-l-2 border-l-alarm/80 bg-alarm/[0.04]" : baby ? "bg-white/[0.025]" : ""}`}
+    >
+      {/* meta (stacked on mobile) */}
+      <div className="flex items-center gap-2 md:contents">
+        <span className="tnum text-[11px] text-mute">{timeOf(e.ts)}</span>
+        <span className="tnum text-[11px] text-mute">{ageStamp(e.ageS)}</span>
+        <span className={`text-[10px] tracking-[0.14em] ${t.cls}`}>{t.label}</span>
+        <span className="ml-auto md:ml-0">
+          <SourceBadge source={e.source} />
+        </span>
+      </div>
+      <div className="min-w-0">
+        <span className={`break-words ${baby ? "text-[13px] text-ink" : warn ? "text-[12px] text-ink" : "text-[12px] text-dim"}`}>{e.message}</span>
+        {reasoning && <span className="mt-1 block text-[11px] leading-snug text-mute">↳ {reasoning}</span>}
         {e.proofUrl && (
-          <a href={e.proofUrl} target="_blank" rel="noreferrer" className="ml-2 text-ice underline decoration-ice/40 underline-offset-2">
-            proof ↗
+          <a
+            href={e.proofUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`View proof for: ${e.message.slice(0, 60)}`}
+            className="ml-2 inline-flex items-center gap-1 rounded-[2px] border border-white/30 px-1.5 py-[2px] align-middle text-[9px] tracking-[0.16em] text-ink uppercase hover:border-white hover:bg-white hover:text-black"
+          >
+            Proof <Icon name="ext" className="h-3 w-3" />
           </a>
         )}
-      </span>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import * as THREE from "three";
 
 /**
  * Particle baby: /baby.png sampled into a point cloud.
- *  - brainLevel (0–1) → visible particle count (~300 at birth → all at T+60), brightness, breathing
+ *  - brainLevel (0–1) → visible particle count (~1.4k at birth → all at T+60), brightness, breathing
  *  - each capability unlock → growth burst: newly visible particles stream in from the edges
  *  - neural cluster in the head: 5 regions light up per unlocked capability group
  */
@@ -89,7 +89,7 @@ const bodyVert = /* glsl */ `
     float scale = uSize.x / 720.0;
     gl_PointSize = visible * uDpr * scale * (1.1 + aBright * 1.9 + (1.0 - uLevel) * 0.8) * (1.0 + isNew * (1.0 - e) * 1.5);
     float twinkle = 0.85 + 0.15 * sin(uTime * 2.0 + aSeed * 60.0);
-    vAlpha = visible * (0.62 + 0.38 * uLevel) * twinkle * mix(1.0, e, isNew);
+    vAlpha = visible * (0.8 + 0.2 * uLevel) * twinkle * mix(1.0, e, isNew);
     vBright = aBright;
   }
 `;
@@ -99,7 +99,7 @@ const bodyFrag = /* glsl */ `
     vec2 d = gl_PointCoord - 0.5; float r = length(d);
     if (r > 0.5) discard;
     float soft = smoothstep(0.5, 0.0, r);
-    vec3 ice = vec3(0.62, 0.85, 1.0);
+    vec3 ice = vec3(0.80, 0.82, 0.86);
     vec3 col = mix(ice, vec3(1.0), vBright);
     gl_FragColor = vec4(col, soft * vAlpha);
   }
@@ -126,13 +126,13 @@ const neuralFrag = /* glsl */ `
   varying float vA;
   void main() {
     float r = length(gl_PointCoord - 0.5); if (r > 0.5) discard;
-    gl_FragColor = vec4(vec3(0.72, 0.9, 1.0), smoothstep(0.5, 0.0, r) * vA);
+    gl_FragColor = vec4(vec3(1.0), smoothstep(0.5, 0.0, r) * vA);
   }
 `;
 
 function particleCount(level: number, total: number) {
   const f = Math.max(0, Math.min(1, (level - 0.05) / 0.95));
-  return Math.round(Math.min(total, 300 + (total - 300) * Math.pow(f, 1.4)));
+  return Math.round(Math.min(total, 1400 + (total - 1400) * Math.pow(f, 1.3)));
 }
 
 function Scene({ cloud, level, active, burstKey, onFps }: { cloud: Cloud; level: number; active: number[]; burstKey: number; onFps: (fps: number) => void }) {
