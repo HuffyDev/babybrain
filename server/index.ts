@@ -76,7 +76,7 @@ async function main() {
   startAutonomyLoop();
 
   await app.listen({ port: env.PORT, host: "0.0.0.0" });
-  console.log(`Baby Brain up on :${env.PORT}  MODE=${env.MODE}  SIM_SPEED=${env.SIM_SPEED}  LLM=${llmProvider}`);
+  console.log(`Baby Brain up on :${env.PORT}  MODE=${env.MODE}${env.MODE === "sim" ? `  SIM_SPEED=${env.SIM_SPEED}` : ""}  LLM=${llmProvider}`);
 }
 
 main().catch((e) => {

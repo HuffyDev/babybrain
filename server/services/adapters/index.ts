@@ -16,7 +16,14 @@ export async function initAdapters(): Promise<Adapters> {
   if (isSim) {
     adapters = { chain: simChain, market: simMarket, social: simSocial, executor: simExecutor };
   } else {
-    throw new Error("live adapters not implemented yet");
+    const [{ liveChain }, { liveMarket }, { liveX }, { liveExecutor }] = await Promise.all([
+      import("./live/chain"),
+      import("./live/market"),
+      import("./live/x"),
+      import("./live/executor"),
+    ]);
+    adapters = { chain: liveChain, market: liveMarket, social: liveX, executor: liveExecutor };
+    await liveMarket.start?.();
   }
   return adapters;
 }

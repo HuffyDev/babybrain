@@ -29,3 +29,19 @@ export function assertFeePayer(tx: VersionedTransaction, treasury: string) {
   const payer = tx.message.staticAccountKeys[0]?.toBase58();
   if (payer !== treasury) throw new Error(`refusing to sign: fee payer ${payer} is not the treasury`);
 }
+
+/** The treasury must be one of the transaction's required signers (it may not be the fee payer for gasless routes). */
+export function assertTreasurySigner(tx: VersionedTransaction, treasury: string) {
+  const n = tx.message.header.numRequiredSignatures;
+  const signers = tx.message.staticAccountKeys.slice(0, n).map((k) => k.toBase58());
+  if (!signers.includes(treasury)) throw new Error("refusing to sign: treasury is not a required signer of this transaction");
+}
+
+/** Max SOL the treasury may lose in one buyback beyond the approved amount (fees, priority fee, ATA rent). */
+export const DEBIT_HEADROOM_SOL = 0.03;
+
+export function assertDebitWithin(preLamports: number, postLamports: number, approvedSol: number) {
+  const debit = (preLamports - postLamports) / 1e9;
+  if (debit > approvedSol + DEBIT_HEADROOM_SOL) throw new Error(`refusing to sign: simulation debits ${debit.toFixed(4)} SOL, approved ${approvedSol} (+${DEBIT_HEADROOM_SOL} headroom)`);
+  return debit;
+}

@@ -45,15 +45,20 @@ async function spentTodayUsd(): Promise<number> {
   return r?.s ?? 0;
 }
 
-async function chargeOrRefuse(endpoint: string, cost: number, units = 1): Promise<string | null> {
+/** Budget gate: refuse (with a public WARNING) if this call would exceed the daily cap. */
+async function budgetRefusal(endpoint: string, cost: number): Promise<string | null> {
   const spent = await spentTodayUsd();
   if (spent + cost > env.X_DAILY_BUDGET_USD) {
     const msg = `X daily budget reached ($${spent.toFixed(3)} of $${env.X_DAILY_BUDGET_USD}) — ${endpoint} refused`;
     await emit({ type: "WARNING", source: "SYSTEM", message: msg, data: { endpoint, spent, budget: env.X_DAILY_BUDGET_USD } });
     return msg;
   }
-  await db.insert(xSpend).values({ endpoint, units, costUsd: cost, simulated: isSim });
   return null;
+}
+
+/** Record spend only for calls that actually went through. */
+async function recordSpend(endpoint: string, cost: number, units = 1) {
+  await db.insert(xSpend).values({ endpoint, units, costUsd: cost, simulated: isSim });
 }
 
 async function precheck(text: string, kind: "post" | "reply"): Promise<string | null> {
@@ -78,10 +83,11 @@ export async function postToX(text: string, opts: { autonomous?: boolean; summar
     return { ok: false, reason: `autonomous post cap (${AUTONOMY.MIN_SECONDS_BETWEEN_AUTONOMOUS_POSTS}s)` };
   const blocked = await precheck(text, "post");
   if (blocked) return { ok: false, reason: blocked };
-  const refused = await chargeOrRefuse("POST /2/tweets", env.X_COST_POST_USD);
+  const refused = await budgetRefusal("POST /2/tweets", env.X_COST_POST_USD);
   if (refused) return { ok: false, reason: refused };
   try {
     const res = await getAdapters().social.post(text);
+    await recordSpend("POST /2/tweets", env.X_COST_POST_USD);
     lastPostAge = age;
     await db.insert(actions).values({ type: "X_POST", status: "CONFIRMED", xUrl: res.url, xPostId: res.id, proofUrl: res.url, summary: opts.summary ?? text, ageS: age });
     await emit({ type: "SOCIAL", source: "SYSTEM", message: `posted to X${isSim ? " (sim)" : ""}`, data: { text, postId: res.id }, proofUrl: res.url });
@@ -109,10 +115,11 @@ export async function replyOnX(mentionId: string, text: string): Promise<PostOut
   if (age - lastReplyAge < AUTONOMY.MIN_SECONDS_BETWEEN_REPLIES) return { ok: false, reason: `reply cap (${AUTONOMY.MIN_SECONDS_BETWEEN_REPLIES}s)` };
   const blocked = await precheck(text, "reply");
   if (blocked) return { ok: false, reason: blocked };
-  const refused = await chargeOrRefuse("POST /2/tweets (reply)", env.X_COST_POST_USD);
+  const refused = await budgetRefusal("POST /2/tweets (reply)", env.X_COST_POST_USD);
   if (refused) return { ok: false, reason: refused };
   try {
     const res = await getAdapters().social.reply(mentionId, text);
+    await recordSpend("POST /2/tweets (reply)", env.X_COST_POST_USD);
     lastReplyAge = age;
     await db.update(mentions).set({ repliedAt: new Date() }).where(eq(mentions.id, mentionId));
     await db.insert(actions).values({ type: "X_REPLY", status: "CONFIRMED", xUrl: res.url, xPostId: res.id, proofUrl: res.url, summary: `→ @${m.handle}: ${text}`, ageS: age });
@@ -133,9 +140,11 @@ export async function replyOnX(mentionId: string, text: string): Promise<PostOut
 /** READ_X: fetch new mentions, store, log inbound interactions, rank the new batch (Haiku). */
 export async function pollMentions(): Promise<number> {
   requireCap("READ_X");
-  const refused = await chargeOrRefuse("GET /2/users/:id/mentions", env.X_COST_READ_USD);
+  const refused = await budgetRefusal("GET /2/users/:id/mentions", env.X_COST_READ_USD);
   if (refused) return 0;
   const got = await getAdapters().social.fetchMentions(sinceId);
+  // pay-per-use bills per post read; an empty poll is billed as one request
+  await recordSpend("GET /2/users/:id/mentions", env.X_COST_READ_USD * Math.max(1, got.length), Math.max(1, got.length));
   if (!got.length) return 0;
   const fresh = await db
     .insert(mentions)
@@ -143,8 +152,6 @@ export async function pollMentions(): Promise<number> {
     .onConflictDoNothing()
     .returning();
   for (const m of got) if (!sinceId || BigInt(m.id) > BigInt(sinceId)) sinceId = m.id;
-  // extra per-post read charge beyond the first
-  if (got.length > 1) await chargeOrRefuse("mentions (per post read)", env.X_COST_READ_USD * (got.length - 1), got.length - 1);
   for (const m of fresh) await logInteraction({ handle: m.handle, platform: "x", inbound: m.text, xPostId: m.id });
   if (fresh.length) await rankMentions(fresh.map((m) => m.id));
   markDirty();
