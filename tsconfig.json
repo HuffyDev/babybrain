@@ -10,6 +10,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "@shared/*": ["shared/*"] },
     "types": ["node", "vite/client"]
   },
   "include": ["server", "shared", "client/src", "vite.config.ts", "drizzle.config.ts"]
