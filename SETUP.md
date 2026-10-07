@@ -37,9 +37,9 @@ Every variable is listed in [`.env.example`](./.env.example) with a placeholder.
 | `X_API_KEY`, `X_API_SECRET` | — | **required** | [developer.x.com](https://developer.x.com) → Developer Portal → your Project → App → **Keys and tokens** → API Key and Secret. Set **User authentication settings → App permissions = Read and write** first. |
 | `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` | — | **required** | Same page → **Access Token and Secret**. Generate it while logged in as the **Baby account**, *after* setting Read and write, or posting will 403. |
 | `X_BEARER_TOKEN` | — | recommended | Same page → **Bearer Token**. Used for reading mentions. |
-| `X_BOT_HANDLE`, `X_BOT_USER_ID` | — | optional | The Baby account's handle (no @) and numeric id. Auto-detected via `/2/users/me` if omitted. Set `X_BOT_HANDLE` so the site's X link works. |
+| `X_BOT_HANDLE`, `X_BOT_USER_ID` | — | optional | The Baby account's handle (no @) and numeric id. **At startup the server calls `GET /2/users/me` with the OAuth 1.0a credentials and uses the id/handle it returns.** If they differ from these vars, a public WARNING is logged. The env values are only a fallback if that call fails. |
 | `X_DAILY_BUDGET_USD` | optional | recommended | Hard daily X spend cap (default `$5`). Calls past it are refused and logged publicly. |
-| `X_COST_POST_USD`, `X_COST_READ_USD` | optional | **check** | Per-call cost estimates used for the budget. **Update them to current X pay-per-use pricing.** |
+| `X_COST_POST_USD`, `X_COST_READ_USD` | optional | optional | Per-call costs used for the daily budget. Defaults: **$0.015 per post/reply** and **$0.005 per post read**. |
 | `X_WRITES_DISABLED` | — | test only | `true` reads X but never posts (live test mode). |
 | `HELIUS_API_KEY` / `HELIUS_RPC_URL` | — | **required** | [dashboard.helius.dev](https://dashboard.helius.dev) → API Keys. The RPC URL is `https://mainnet.helius-rpc.com/?api-key=…`. Only one of the two is needed. |
 | `JUPITER_API_KEY` | — | needed after migration | Jupiter Developer Platform ([developers.jup.ag](https://developers.jup.ag)) → API keys. Used for buybacks once the token leaves the pump.fun bonding curve (Swap API v2). |
@@ -78,6 +78,29 @@ Locally (outside Replit): Postgres + `cp .env.example .env` + `npm ci` + `npm ru
 ---
 
 ## 4. Live test mode (before launch)
+
+**First, run the read-only API check** (Replit Shell, with your Secrets set):
+
+```bash
+npm run check:live
+```
+
+It tests each real API without posting, signing or touching the database, and prints `PASS` / `WARN` / `FAIL` / `SKIP` per line. It exits non-zero if anything fails.
+
+| Check | What it does |
+|---|---|
+| Anthropic | retrieves both models, plus one ~16-token test message |
+| Helius RPC | `getHealth` + `getSlot` |
+| Helius holders | DAS `getAsset` + `getTokenAccounts` for `TOKEN_MINT` (falls back to USDC and WARNs if unset) |
+| pump.fun bonding curve | reads and decodes the curve account (price, `complete` flag) |
+| DexScreener | pairs for `TOKEN_MINT` (WARN if not indexed yet — normal for a brand-new token) |
+| PumpPortal websocket | connects, subscribes to the mint, waits for the first message |
+| X `/2/users/me` | OAuth 1.0a identity; WARN if it differs from `X_BOT_USER_ID` / `X_BOT_HANDLE` |
+| X mentions | reads ≤5 mentions (costs ≤5 × `X_COST_READ_USD`) |
+| Jupiter | `GET /swap/v2/order` **without a taker**: a quote only, no transaction is built |
+| Treasury | SOL balance (WARN if at or below the reserve) and that `TREASURY_PRIVATE_KEY` decodes to `TREASURY_PUBKEY` (no signing) |
+
+Then:
 
 Validate the real APIs and the real swap path with a **tiny throwaway token** on mainnet. pump.fun has no usable devnet.
 
@@ -155,7 +178,7 @@ The build environment's network policy blocked Helius, X, PumpPortal, DexScreene
 - [ ] **PumpPortal websocket** trades arrive (log: `[pumpportal] subscribed …`). If post-migration data needs a key, set `PUMPPORTAL_API_KEY`.
 - [ ] **PumpPortal `trade-local`** buy works with `denominatedInSol: "true"`, `slippage` in percent, `pool: "pump"`.
 - [ ] **Jupiter Swap API v2** (`GET /swap/v2/order` → sign → `POST /swap/v2/execute`, header `x-api-key`). If a route touches a program not in `ALLOWED_PROGRAMS`, the executor refuses and falls back to PumpSwap via PumpPortal (`pool: "pump-amm"`). To allow more programs, add their IDs to `server/config/limits.ts` **after verifying them**.
-- [ ] **X**: mentions timeline, post and reply with your app's access level. Update `X_COST_*` to current pricing.
+- [ ] **X**: mentions timeline, post and reply with your app's access level (`npm run check:live` covers users/me and mentions; posting is only tested by the live run).
 
 Safety checks that run before every live signature (all unit-tested): only whitelisted top-level programs; the treasury must be a required signer; a simulation must show the treasury debited at most the approved amount + 0.03 SOL; and the Guardian is re-evaluated immediately before signing.
 
@@ -170,6 +193,7 @@ npm run build       # build frontend to dist/
 npm run dev         # server only, watch mode
 npm run dev:client  # Vite dev server on :5173 (proxies /api, /admin/api, /socket.io to :5000)
 npm test            # unit tests (Guardian, executor checks, content filter, gating, timeline, sim)
+npm run check:live  # read-only PASS/FAIL check of every real API (see §4)
 npm run typecheck
 npx drizzle-kit generate   # after editing server/db/schema.ts (migrations apply on boot)
 ```

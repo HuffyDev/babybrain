@@ -33,7 +33,7 @@ const schema = z.object({
   /** Hard daily spend cap for X API pay-per-use (USD) */
   X_DAILY_BUDGET_USD: z.coerce.number().default(5),
   /** Per-call cost estimates (USD). Check current X pricing and adjust. */
-  X_COST_POST_USD: z.coerce.number().default(0.01),
+  X_COST_POST_USD: z.coerce.number().default(0.015),
   X_COST_READ_USD: z.coerce.number().default(0.005),
   /** Disable all real X writes in live mode (validate reads only) */
   X_WRITES_DISABLED: z

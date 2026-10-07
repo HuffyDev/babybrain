@@ -28,6 +28,16 @@ function treasuryKeypair(): Keypair {
   return k;
 }
 
+/** Read-only check used by `npm run check:live`: does the private key decode and match TREASURY_PUBKEY? Never signs. */
+export function verifyTreasuryKey(): { ok: boolean; detail: string } {
+  try {
+    const k = treasuryKeypair();
+    return { ok: true, detail: `private key matches ${k.publicKey.toBase58()}` };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function preflight(tx: VersionedTransaction, amountSol: number) {
   const treasury = env.TREASURY_PUBKEY!;
   const programs = assertProgramsAllowed(tx);

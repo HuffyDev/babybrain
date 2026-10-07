@@ -26,12 +26,47 @@ function getReader(): TwitterApiReadOnly {
   return reader;
 }
 
+const hasUserCreds = () => !!(env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_SECRET);
+
+/**
+ * Startup identity check: GET /2/users/me with the OAuth 1.0a user credentials and use the returned id/handle.
+ * Warns (never crashes) if it disagrees with X_BOT_USER_ID / X_BOT_HANDLE, or if the call fails.
+ * Returns the warnings so the caller can log them publicly.
+ */
+export async function initXIdentity(): Promise<{ id: string | null; handle: string | null; warnings: string[] }> {
+  const warnings: string[] = [];
+  if (!hasUserCreds()) {
+    warnings.push("X OAuth 1.0a credentials missing — cannot verify bot identity via /2/users/me; using X_BOT_USER_ID/X_BOT_HANDLE from env");
+    return { id: userId, handle, warnings };
+  }
+  try {
+    const u = await getWriter().v2.me();
+    if (env.X_BOT_USER_ID && env.X_BOT_USER_ID !== u.data.id)
+      warnings.push(`X_BOT_USER_ID=${env.X_BOT_USER_ID} differs from /2/users/me id ${u.data.id} (@${u.data.username}) — using ${u.data.id}`);
+    if (env.X_BOT_HANDLE && env.X_BOT_HANDLE.replace(/^@/, "").toLowerCase() !== u.data.username.toLowerCase())
+      warnings.push(`X_BOT_HANDLE=${env.X_BOT_HANDLE} differs from /2/users/me username @${u.data.username} — using @${u.data.username}`);
+    userId = u.data.id;
+    handle = u.data.username;
+    identityVerified = true;
+    console.log(`[x] authenticated as @${handle} (id ${userId})`);
+  } catch (e) {
+    warnings.push(`X /2/users/me failed: ${e instanceof Error ? e.message : String(e)} — falling back to X_BOT_USER_ID/X_BOT_HANDLE`);
+  }
+  return { id: userId, handle, warnings };
+}
+
+let identityVerified = false;
+
 async function me() {
-  if (handle && userId) return { handle, userId };
-  const u = await getWriter().v2.me();
-  handle = u.data.username;
-  userId = u.data.id;
-  return { handle, userId };
+  if (userId && handle && (identityVerified || !hasUserCreds())) return { handle, userId };
+  const r = await initXIdentity();
+  if (!r.id) throw new Error("X bot user id unknown: set X OAuth 1.0a credentials or X_BOT_USER_ID");
+  return { handle: r.handle ?? "i", userId: r.id };
+}
+
+/** Bot handle as verified at startup (for the site's X link). */
+export function xHandle() {
+  return handle;
 }
 
 const statusUrl = (id: string) => `https://x.com/${handle ?? "i"}/status/${id}`;

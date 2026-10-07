@@ -12,7 +12,7 @@ import { loadSettings } from "./services/settings";
 import { loadCapabilities } from "./services/capabilities";
 import { attachIO, emit } from "./services/events";
 import { loadFired, startEngine } from "./services/engine";
-import { getState, startStateBroadcaster } from "./services/state";
+import { getState, setVerifiedXHandle, startStateBroadcaster } from "./services/state";
 import { publicRoutes, recentEvents } from "./routes/public";
 import { adminRoutes } from "./routes/admin";
 import { proofRoutes } from "./routes/proof";
@@ -41,6 +41,15 @@ async function main() {
     }
   }
   await initSocialState();
+  if (!isSim) {
+    const { initXIdentity } = await import("./services/adapters/live/x");
+    const x = await initXIdentity();
+    setVerifiedXHandle(x.handle);
+    for (const w of x.warnings) {
+      console.warn(`[x] ${w}`);
+      await emit({ type: "WARNING", source: "SYSTEM", message: w });
+    }
+  }
 
   // A step whose task was mid-flight when the process died is NOT re-run (it may already have posted / traded).
   const interrupted = await db.update(timelineFired).set({ status: "interrupted" }).where(eq(timelineFired.status, "running")).returning();

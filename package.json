@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "replit": "vite build && tsx server/index.ts",
-    "dev:all": "vite build && tsx watch --clear-screen=false server/index.ts"
+    "dev:all": "vite build && tsx watch --clear-screen=false server/index.ts",
+    "check:live": "tsx scripts/check-live.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.0",
