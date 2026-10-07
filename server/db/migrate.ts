@@ -23,7 +23,8 @@ const LOCK_KEY = 0x6262_6d67; // "bbmg" — serialises concurrent boots
 const ALREADY_EXISTS = new Set(["42P07", "42710", "42701", "42P06", "42723"]);
 
 export interface MigrationReport {
-  mode: "fresh-or-journaled" | "baselined";
+  mode: "fresh-or-journaled" | "baselined" | "repaired";
+  missingTables: string[];
   skipped: string[];
   applied: string[];
   addedColumns: string[];
@@ -107,7 +108,12 @@ async function baseline(c: pg.PoolClient, migrations: MigrationMeta[], folder: s
           report.skipped.push(short(stmt));
         }
       }
-      await c.query(`INSERT INTO "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" ("hash", "created_at") VALUES ($1, $2)`, [m.hash, m.folderMillis]);
+      // record each migration once (a repair may run against a journal that already lists it)
+      await c.query(
+        `INSERT INTO "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" ("hash", "created_at") SELECT $1::text, $2::bigint
+         WHERE NOT EXISTS (SELECT 1 FROM "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" WHERE hash = $1::text)`,
+        [m.hash, m.folderMillis],
+      );
     }
     await reconcileColumns(c, folder, report);
     await c.query("COMMIT");
@@ -121,7 +127,7 @@ async function baseline(c: pg.PoolClient, migrations: MigrationMeta[], folder: s
  * @param runDrizzle the normal drizzle migrator (applies anything newer than the journal)
  */
 export async function runIdempotentMigrations(pool: pg.Pool, folder: string, runDrizzle: () => Promise<void>): Promise<MigrationReport> {
-  const report: MigrationReport = { mode: "fresh-or-journaled", skipped: [], applied: [], addedColumns: [], missingColumnsNotAdded: [] };
+  const report: MigrationReport = { mode: "fresh-or-journaled", missingTables: [], skipped: [], applied: [], addedColumns: [], missingColumnsNotAdded: [] };
   const migrations = readMigrationFiles({ migrationsFolder: folder });
   const c = await pool.connect();
   try {
@@ -129,8 +135,16 @@ export async function runIdempotentMigrations(pool: pg.Pool, folder: string, run
     try {
       const journaled = await journalCount(c);
       const tables = await existingAppTables(c);
+      const expected = Object.values(latestSnapshot(folder) ?? {}).map((t) => t.name);
+      report.missingTables = expected.filter((t) => !tables.includes(t));
       if (journaled === 0 && tables.length > 0) {
+        // tables exist but no journal (e.g. Replit publish pre-created them)
         report.mode = "baselined";
+        await baseline(c, migrations, folder, report);
+      } else if (journaled > 0 && report.missingTables.length > 0) {
+        // journal says "done" but tables are gone (e.g. public schema dropped, drizzle schema kept):
+        // drizzle would apply nothing and boot would crash on the first query — re-create what's missing
+        report.mode = "repaired";
         await baseline(c, migrations, folder, report);
       }
       await runDrizzle(); // no-op after a baseline unless newer migrations exist

@@ -120,6 +120,30 @@ describe.skipIf(!ADMIN)("idempotent boot migrations (real Postgres)", () => {
     expect(await journalRows(pool!)).toBe(1);
   });
 
+  it("repairs a DB whose journal survived but whose tables were dropped", async () => {
+    await run(pool!); // normal migrate: tables + journal
+    await pool!.query(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`); // drizzle schema (journal) kept
+    // the bug: plain drizzle now does nothing, so the first query fails
+    await migrate(drizzle(pool!), { migrationsFolder: folder });
+    const err = await pool!.query(`select * from settings`).then(() => null, (e: Error) => e);
+    expect(err?.message).toMatch(/relation "settings" does not exist/);
+    const r = await run(pool!);
+    expect(r.mode).toBe("repaired");
+    expect(r.missingTables.length).toBe(EXPECTED_TABLES);
+    expect(await tableCount(pool!)).toBe(EXPECTED_TABLES);
+    expect(await journalRows(pool!)).toBe(1); // no duplicate journal rows
+    expect((await run(pool!)).mode).toBe("fresh-or-journaled");
+  });
+
+  it("repairs a single missing table even with a journal", async () => {
+    await run(pool!);
+    await pool!.query(`drop table settings`);
+    const r = await run(pool!);
+    expect(r.mode).toBe("repaired");
+    expect(r.missingTables).toEqual(["settings"]);
+    expect(await tableCount(pool!)).toBe(EXPECTED_TABLES);
+  });
+
   it("serialises concurrent boots", async () => {
     await precreateWithoutJournal(pool!);
     const [a, b] = await Promise.all([run(pool!), run(pool!)]);

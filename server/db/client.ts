@@ -21,9 +21,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export async function runMigrations() {
   const folder = path.resolve(here, "../../drizzle");
   const report = await runIdempotentMigrations(pool, folder, () => migrate(db, { migrationsFolder: folder }));
-  if (report.mode === "baselined") {
+  if (report.mode !== "fresh-or-journaled") {
+    const why =
+      report.mode === "baselined"
+        ? "tables existed without a migrations journal — baselined"
+        : `journal present but ${report.missingTables.length} table(s) missing (${report.missingTables.join(", ")}) — repaired`;
     console.log(
-      `[db] tables existed without a migrations journal — baselined: ${report.applied.length} statement(s) applied, ` +
+      `[db] ${why}: ${report.applied.length} statement(s) applied, ` +
         `${report.skipped.length} already present, ${report.addedColumns.length} column(s) added`,
     );
     for (const s of report.applied) console.log(`[db]   created: ${s}`);
