@@ -19,6 +19,11 @@ class SerialQueue {
     return { running: this.running?.name ?? null, waiting: this.jobs.map((j) => j.name) };
   }
 
+  /** true if a job with this name is running or waiting */
+  has(name: string) {
+    return this.running?.name === name || this.jobs.some((j) => j.name === name);
+  }
+
   get busy() {
     return this.running !== null || this.jobs.length > 0;
   }

@@ -39,3 +39,10 @@ export const ALLOWED_PROGRAMS: Record<string, string> = {
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL": "Associated Token Account",
   "ComputeBudget111111111111111111111111111111": "ComputeBudget",
 };
+
+/** "Thought" posts: short tweets about growing up, at random intervals (baby-seconds). */
+export const THOUGHTS = {
+  ENABLED: process.env.THOUGHT_POSTS_ENABLED !== "false",
+  MIN_S: num("THOUGHT_POST_MIN_S", 30),
+  MAX_S: num("THOUGHT_POST_MAX_S", 120),
+} as const;
