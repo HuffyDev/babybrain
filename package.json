@@ -11,10 +11,8 @@
     "dev:client": "vite",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
-    "db:push": "drizzle-kit push",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "replit": "vite build && tsx server/index.ts",
     "dev:all": "vite build && tsx watch --clear-screen=false server/index.ts",
     "check:live": "tsx scripts/check-live.ts"
   },

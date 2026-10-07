@@ -10,6 +10,6 @@ Quick start (sim, no keys needed):
 ```bash
 cp .env.example .env     # set DATABASE_URL + ADMIN_TOKEN
 npm ci
-npm run replit           # http://localhost:5000  → /admin → "RUN FULL FIRST HOUR"
+npm run build && npm start   # http://localhost:5000  → /admin → "RUN FULL FIRST HOUR"
 npm test
 ```

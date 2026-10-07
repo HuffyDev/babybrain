@@ -10,11 +10,11 @@ This repo is a complete, sim-tested build. It runs end-to-end with **no API keys
 ## 1. Import into Replit
 
 1. **Create Repl → Import from GitHub** → this repo (branch `claude/replit-migration-apis-tblgmi` or `main` once merged).
-2. **Add a database:** Tools → **Database** → create **PostgreSQL**. Replit sets `DATABASE_URL` for you. Tables are created automatically on first boot (Drizzle migrations in `/drizzle`).
+2. **Add a database:** Tools → **Database** → create **PostgreSQL**. Replit sets `DATABASE_URL` for you. Tables are created automatically on boot from the migrations in `/drizzle`.
 3. **Add secrets:** Tools → **Secrets**. At minimum for the first sim run:
    - `ADMIN_TOKEN`: any long random string, e.g. the output of `openssl rand -hex 32`
    - `ANTHROPIC_API_KEY`: needed for Baby to actually think. Without it, sim mode falls back to the `[MOCK-LLM]` placeholder brain.
-4. Press **Run**. This runs `npm run replit`, which builds the frontend and starts the single server process on port 5000.
+4. Press **Run**. This runs `npm run build && npm start`, which builds the frontend and starts the single server process on port 5000 (mapped to port 80). There is no database setup step: the app creates and migrates its tables on boot.
 5. Open the webview. The site shows **GESTATING**.
 6. Open `/admin`, paste your `ADMIN_TOKEN`, and click **RUN FULL FIRST HOUR**. At `SIM_SPEED=10` the whole first hour plays out in 6 minutes.
 
@@ -73,7 +73,7 @@ ANTHROPIC_API_KEY=…      # real LLM (recommended); omit to use the [MOCK-LLM] 
 - `/admin` → **RUN FULL FIRST HOUR** resets all run state and launches now. **RESET TO GESTATING** clears it.
 - The sim is restart-safe. Kill the process mid-hour and it resumes; steps never re-fire.
 
-Locally (outside Replit): Postgres + `cp .env.example .env` + `npm ci` + `npm run replit`.
+Locally (outside Replit): Postgres + `cp .env.example .env` + `npm ci` + `npm run build && npm start`.
 
 ---
 
@@ -187,7 +187,7 @@ Safety checks that run before every live signature (all unit-tested): only white
 ## 8. Commands
 
 ```bash
-npm run replit      # build frontend + start server (what the Run button does)
+npm run build && npm start   # what the Run button does: build frontend, start server (migrates DB on boot)
 npm start           # production start (expects a prior `npm run build`)
 npm run build       # build frontend to dist/
 npm run dev         # server only, watch mode
@@ -195,7 +195,7 @@ npm run dev:client  # Vite dev server on :5173 (proxies /api, /admin/api, /socke
 npm test            # unit tests (Guardian, executor checks, content filter, gating, timeline, sim)
 npm run check:live  # read-only PASS/FAIL check of every real API (see §4)
 npm run typecheck
-npx drizzle-kit generate   # after editing server/db/schema.ts (migrations apply on boot)
+npx drizzle-kit generate   # developers only, after editing server/db/schema.ts: writes a new migration that is applied automatically on next boot
 ```
 
 ---

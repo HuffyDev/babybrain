@@ -1,22 +1,18 @@
 # Baby Brain — Replit config
-# Run button: builds the frontend and starts the single server process (web + engine + pollers + autonomy loop).
-modules = ["nodejs-22", "postgresql-16"]
-run = "npm run replit"
-entrypoint = "server/index.ts"
-
-[nix]
-channel = "stable-24_05"
+# Run builds the frontend, then starts the single server process (web + engine + pollers + autonomy loop).
+# The database migrates itself on boot; no separate DB step is needed.
+modules = ["nodejs-22"]
+run = "npm run build && npm start"
 
 [env]
 PORT = "5000"
 
-[deployment]
-# Must be an always-on Reserved VM: the development engine, pollers and websockets run continuously.
-# (Autoscale scales to zero and would pause Baby's development.)
-deploymentTarget = "vm"
-build = ["sh", "-c", "npm ci && npm run build"]
-run = ["sh", "-c", "npm start"]
-
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[deployment]
+# Always-on Reserved VM: the development engine, pollers and websockets must run continuously.
+deploymentTarget = "vm"
+build = ["npm", "run", "build"]
+run = ["npm", "start"]
