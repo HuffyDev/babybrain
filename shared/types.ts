@@ -184,6 +184,8 @@ export interface AnatomyPart {
   key: string;
   label: string;
   active: boolean;
+  /** some but not all capabilities unlocked */
+  partial: boolean;
   capabilities: Capability[];
   /** seconds after launch when it becomes active (null = no scheduled unlock) */
   unlockAt: number | null;

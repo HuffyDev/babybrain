@@ -28,6 +28,8 @@ const TABLES = [
 /** Sim only: wipe all run state (settings/kill switches are kept). */
 export async function resetSim() {
   queue.reset();
+  // let an in-flight job finish so it can't write into the freshly truncated tables (bounded wait)
+  await Promise.race([queue.idle(), new Promise((r) => setTimeout(r, 45_000))]);
   await db.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY`));
   await loadCapabilities();
   await loadFired();

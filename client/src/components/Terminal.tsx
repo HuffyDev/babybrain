@@ -25,7 +25,7 @@ export function SourceBadge({ source }: { source: Source }) {
     GUARDIAN: "text-salmon border-salmon/50",
     HUMAN: "bg-alarm text-black border-alarm",
   };
-  return <span className={`inline-block shrink-0 rounded-[2px] border px-1 py-px font-mono text-[9px] leading-none tracking-wider ${cls[source]}`}>{source}</span>;
+  return <span className={`inline-block shrink-0 self-start mt-[3px] rounded-[2px] border px-1 py-px font-mono text-[9px] leading-none tracking-wider ${cls[source]}`}>{source}</span>;
 }
 
 const ALL: EventType[] = Object.keys(TYPE_COLOR) as EventType[];
@@ -77,7 +77,7 @@ export function Terminal() {
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
         }}
-        className="terminal-scroll panel h-[420px] overflow-y-auto bg-black/60 p-3 font-mono text-[12px] leading-relaxed"
+        className="terminal-scroll panel h-[360px] overflow-y-auto bg-black/60 p-2 font-mono text-[11px] leading-relaxed sm:h-[440px] sm:p-3 sm:text-[12px]"
       >
         {shown.length === 0 && <div className="text-mute">no signal yet<span className="blink">_</span></div>}
         {shown.map((e) => (
@@ -93,7 +93,7 @@ function Line({ e }: { e: PublicEvent }) {
   return (
     <div className="flex gap-2 border-b border-white/[0.03] py-[3px]">
       <span className="hidden shrink-0 text-mute sm:inline">{timeOf(e.ts)}</span>
-      <span className="w-[92px] shrink-0" style={{ color }}>
+      <span className="w-[84px] shrink-0 sm:w-[96px]" style={{ color }}>
         [{e.type}]
       </span>
       <SourceBadge source={e.source} />

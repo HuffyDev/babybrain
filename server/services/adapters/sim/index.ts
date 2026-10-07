@@ -87,12 +87,13 @@ export const simMarket: MarketAdapter = {
 
 export const simSocial: SocialAdapter = {
   simulated: true,
-  async fetchMentions(sinceId) {
+  async fetchMentions(sinceId, maxResults) {
     const w = simWorld();
     const age = nowAge();
     const handle = "babybrain";
     return w.mentions
       .filter((m) => m.t <= age && (!sinceId || BigInt(m.id) > BigInt(sinceId)))
+      .slice(-maxResults) // newest N, like the X API
       .map((m) => ({ id: m.id, ageS: m.t, handle: m.handle, text: m.text.replace("{bot}", `@${handle}`), followers: m.followers, likes: m.likes, replies: m.replies, minorFlag: m.minorFlag }));
   },
   async post(text) {

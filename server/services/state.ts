@@ -76,9 +76,13 @@ export async function computeState(): Promise<PublicState> {
   ];
 
   const anatomy: AnatomyPart[] = [
-    ...ANATOMY.map((a) => ({ key: a.key, label: a.label, capabilities: a.caps, active: a.caps.every((x) => hasCap(x)), unlockAt: unlockTime(a.caps) })),
-    { key: "guardian", label: "GUARDIAN", capabilities: [], active: born, unlockAt: 0 },
-    { key: "nervous", label: "NERVOUS SYSTEM", capabilities: [], active: fired.has("first_reply") && s.autonomyEnabled, unlockAt: 12 * 60 },
+    ...ANATOMY.map((a) => {
+      const on = a.caps.filter((x) => hasCap(x)).length;
+      const locked = a.caps.filter((x) => !hasCap(x));
+      return { key: a.key, label: a.label, capabilities: a.caps, active: on === a.caps.length, partial: on > 0 && on < a.caps.length, unlockAt: unlockTime(locked.length ? locked : a.caps) };
+    }),
+    { key: "guardian", label: "GUARDIAN", capabilities: [], active: born, partial: false, unlockAt: 0 },
+    { key: "nervous", label: "NERVOUS SYSTEM", capabilities: [], active: fired.has("first_reply") && s.autonomyEnabled, partial: false, unlockAt: 12 * 60 },
   ];
 
   return {
@@ -141,12 +145,27 @@ export async function getState(): Promise<PublicState> {
   return computing;
 }
 
+/**
+ * Broadcast deltas: once per second (only when something changed) send just the top-level keys whose content
+ * changed. Clients get the full state once on connect. Keeps launch-day fan-out small.
+ */
 export function startStateBroadcaster() {
   bus.on("changed", () => (dirty = true));
+  const lastSent = new Map<string, string>();
   setInterval(async () => {
     if (!dirty) return;
     try {
-      broadcast("state", await getState());
+      const st = await getState();
+      const patch: Record<string, unknown> = { serverNow: st.serverNow, ageS: st.ageS };
+      for (const [k, v] of Object.entries(st)) {
+        if (k === "serverNow" || k === "ageS") continue;
+        const j = JSON.stringify(v);
+        if (lastSent.get(k) !== j) {
+          lastSent.set(k, j);
+          patch[k] = v;
+        }
+      }
+      if (Object.keys(patch).length > 2) broadcast("state:patch", patch);
     } catch (e) {
       console.error("[state] compute failed", e);
     }

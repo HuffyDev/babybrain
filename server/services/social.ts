@@ -142,7 +142,9 @@ export async function pollMentions(): Promise<number> {
   requireCap("READ_X");
   const refused = await budgetRefusal("GET /2/users/:id/mentions", env.X_COST_READ_USD);
   if (refused) return 0;
-  const got = await getAdapters().social.fetchMentions(sinceId);
+  const remaining = env.X_DAILY_BUDGET_USD - (await spentTodayUsd());
+  const maxResults = Math.max(5, Math.min(50, Math.floor(remaining / env.X_COST_READ_USD)));
+  const got = await getAdapters().social.fetchMentions(sinceId, maxResults);
   // pay-per-use bills per post read; an empty poll is billed as one request
   await recordSpend("GET /2/users/:id/mentions", env.X_COST_READ_USD * Math.max(1, got.length), Math.max(1, got.length));
   if (!got.length) return 0;

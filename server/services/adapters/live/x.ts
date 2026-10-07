@@ -39,11 +39,11 @@ const statusUrl = (id: string) => `https://x.com/${handle ?? "i"}/status/${id}`;
 export const liveX: SocialAdapter = {
   simulated: false,
 
-  async fetchMentions(sinceId) {
+  async fetchMentions(sinceId, maxResults) {
     const { userId: id } = await me();
     const res = await getReader().v2.userMentionTimeline(id, {
       ...(sinceId ? { since_id: sinceId } : {}),
-      max_results: 50,
+      max_results: Math.max(5, Math.min(100, maxResults)),
       expansions: ["author_id"],
       "tweet.fields": ["created_at", "public_metrics", "author_id"],
       "user.fields": ["username", "public_metrics"],

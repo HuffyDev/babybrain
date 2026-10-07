@@ -47,7 +47,7 @@ async function main() {
   for (const r of interrupted)
     await emit({ type: "WARNING", source: "SYSTEM", message: `restart: step ${r.stepId} was interrupted mid-task and will not be re-run`, data: { stepId: r.stepId } });
 
-  const app = Fastify({ logger: false, trustProxy: true, bodyLimit: 64 * 1024 });
+  const app = Fastify({ logger: false, trustProxy: (_addr: string, hop: number) => hop < env.TRUST_PROXY_HOPS, bodyLimit: 64 * 1024 });
   await app.register(publicRoutes, { prefix: "/api" });
   await app.register(adminRoutes, { prefix: "/admin/api" });
   await app.register(proofRoutes);
@@ -62,11 +62,20 @@ async function main() {
   }
 
   await app.ready();
-  const io = new IOServer(app.server, { cors: { origin: env.NODE_ENV === "production" ? false : "*" }, serveClient: false });
+  const io = new IOServer(app.server, {
+    cors: { origin: env.NODE_ENV === "production" ? false : "*" },
+    serveClient: false,
+    perMessageDeflate: { threshold: 1024 },
+    pingInterval: 25_000,
+    pingTimeout: 20_000,
+  });
   attachIO(io);
+  // initial payload is shared by every connecting client (cached ≤1s) so a reconnect storm costs O(1) DB work
+  let initial: { at: number; events: Awaited<ReturnType<typeof recentEvents>> } | null = null;
   io.on("connection", async (socket) => {
     socket.emit("state", await getState());
-    socket.emit("events", await recentEvents(200));
+    if (!initial || Date.now() - initial.at > 1000) initial = { at: Date.now(), events: await recentEvents(150) };
+    socket.emit("events", initial.events);
   });
 
   startStateBroadcaster();

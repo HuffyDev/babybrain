@@ -27,6 +27,9 @@ export function connect() {
   socket.on("connect", () => set({ connected: true }));
   socket.on("disconnect", () => set({ connected: false }));
   socket.on("state", (state: PublicState) => set({ state, receivedAt: Date.now() }));
+  socket.on("state:patch", (patch: Partial<PublicState>) => {
+    if (store.state) set({ state: { ...store.state, ...patch }, receivedAt: Date.now() });
+  });
   socket.on("events", (events: PublicEvent[]) => set({ events }));
   socket.on("event", (e: PublicEvent) => {
     if (store.events.some((x) => x.id === e.id)) return;

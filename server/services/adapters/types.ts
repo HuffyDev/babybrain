@@ -69,7 +69,8 @@ export interface MarketAdapter {
 
 export interface SocialAdapter {
   readonly simulated: boolean;
-  fetchMentions(sinceId: string | null): Promise<Mention[]>;
+  /** maxResults is bounded by the remaining daily X budget (X allows 5–100) */
+  fetchMentions(sinceId: string | null, maxResults: number): Promise<Mention[]>;
   post(text: string): Promise<PostResult>;
   reply(inReplyToId: string, text: string): Promise<PostResult>;
 }

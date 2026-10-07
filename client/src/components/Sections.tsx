@@ -19,6 +19,15 @@ function Section({ id, title, children, right }: { id?: string; title: string; c
   );
 }
 
+function More({ total, shown, onClick }: { total: number; shown: number; onClick: () => void }) {
+  if (total <= shown) return null;
+  return (
+    <button onClick={onClick} className="mt-2 font-mono text-[11px] text-ice">
+      show all {total} ↓
+    </button>
+  );
+}
+
 const Empty = ({ children }: { children: React.ReactNode }) => <div className="panel px-4 py-6 font-mono text-xs text-mute">{children}</div>;
 
 // ── 2. Development bars ─────────────────────────────────────────────────────
@@ -57,8 +66,10 @@ export function Anatomy() {
           return (
             <div key={a.key} className={`panel px-3 py-3 ${a.active ? "border-ice/40 shadow-[0_0_24px_-8px_rgba(159,216,255,0.5)]" : ""}`}>
               <div className="font-mono text-xs tracking-widest text-ink">{a.label}</div>
-              <div className={`mt-1 font-mono text-[11px] ${a.active ? "text-ice" : "text-mute"}`}>
-                {a.active ? "● ACTIVE" : until !== null && until > 0 ? `LOCKED · ${fmtCountdown(until)}` : "LOCKED"}
+              <div className={`mt-1 font-mono text-[11px] ${a.active ? "text-ice" : a.partial ? "text-chrome" : "text-mute"}`}>
+                {a.active
+                  ? "● ACTIVE"
+                  : `${a.partial ? "◐ PARTIAL" : "LOCKED"}${until !== null && until > 0 ? ` · ${a.partial ? "next " : ""}${fmtCountdown(until)}` : ""}`}
               </div>
               {a.capabilities.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -79,7 +90,9 @@ export function Anatomy() {
 
 // ── 6. Action log ───────────────────────────────────────────────────────────
 export function ActionLog() {
-  const actions = useStore((s) => s.state?.actions ?? EMPTY);
+  const all = useStore((s) => s.state?.actions ?? EMPTY);
+  const [n, setN] = useState(12);
+  const actions = all.slice(0, n);
   return (
     <Section id="actions" title="Action Log" right={<span className="hud-label">every row links to proof</span>}>
       {actions.length === 0 ? (
@@ -109,13 +122,16 @@ export function ActionLog() {
           })}
         </div>
       )}
+      <More total={all.length} shown={n} onClick={() => setN(1000)} />
     </Section>
   );
 }
 
 // ── 7. Proposals ────────────────────────────────────────────────────────────
 export function Proposals() {
-  const proposals = useStore((s) => s.state?.proposals ?? EMPTY);
+  const all = useStore((s) => s.state?.proposals ?? EMPTY);
+  const [n, setN] = useState(6);
+  const proposals = all.slice(0, n);
   return (
     <Section title="Proposals · Guardian">
       {proposals.length === 0 ? (
@@ -149,6 +165,7 @@ export function Proposals() {
           })}
         </div>
       )}
+      <More total={all.length} shown={n} onClick={() => setN(1000)} />
     </Section>
   );
 }
@@ -221,7 +238,9 @@ export function Timeline() {
 // ── 9. Memories + People ────────────────────────────────────────────────────
 export function MemoriesPeople() {
   const memories = useStore((s) => s.state?.memories ?? EMPTY);
-  const people = useStore((s) => s.state?.people ?? EMPTY);
+  const allPeople = useStore((s) => s.state?.people ?? EMPTY);
+  const [pn, setPn] = useState(15);
+  const people = allPeople.slice(0, pn);
   const slang = useStore((s) => s.state?.slang ?? EMPTY);
   return (
     <>
@@ -286,6 +305,7 @@ export function MemoriesPeople() {
             </table>
           </div>
         )}
+        <More total={allPeople.length} shown={pn} onClick={() => setPn(1000)} />
       </Section>
     </>
   );

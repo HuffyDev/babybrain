@@ -18,6 +18,8 @@ const schema = z.object({
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required (add Replit Postgres)"),
   ADMIN_TOKEN: optional,
+  /** reverse-proxy hops in front of the app (Replit = 1). Used to read the real client IP for chat rate limits. */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 
   ANTHROPIC_API_KEY: optional,
 

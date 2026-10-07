@@ -1,0 +1,193 @@
+# Baby Brain — Setup
+
+A newborn AI born at token launch, developing in public. **You raise it. It runs the coin.**
+Full product spec: [`BABY_BRAIN_SPEC.md`](./BABY_BRAIN_SPEC.md).
+
+This repo is a complete, sim-tested build. It runs end-to-end with **no API keys** in simulation mode, then switches to real APIs by setting env vars and `MODE=live`.
+
+---
+
+## 1. Import into Replit
+
+1. **Create Repl → Import from GitHub** → this repo (branch `claude/replit-migration-apis-tblgmi` or `main` once merged).
+2. **Add a database:** Tools → **Database** → create **PostgreSQL**. Replit sets `DATABASE_URL` for you. Tables are created automatically on first boot (Drizzle migrations in `/drizzle`).
+3. **Add secrets:** Tools → **Secrets**. At minimum for the first sim run:
+   - `ADMIN_TOKEN`: any long random string, e.g. the output of `openssl rand -hex 32`
+   - `ANTHROPIC_API_KEY`: needed for Baby to actually think. Without it, sim mode falls back to the `[MOCK-LLM]` placeholder brain.
+4. Press **Run**. This runs `npm run replit`, which builds the frontend and starts the single server process on port 5000.
+5. Open the webview. The site shows **GESTATING**.
+6. Open `/admin`, paste your `ADMIN_TOKEN`, and click **RUN FULL FIRST HOUR**. At `SIM_SPEED=10` the whole first hour plays out in 6 minutes.
+
+**Deploying:** Deploy → **Reserved VM** (already configured in `.replit`). Do **not** use Autoscale: the development engine, pollers, websockets and autonomous loop must run continuously, and Autoscale scales to zero.
+
+---
+
+## 2. Environment variables
+
+Every variable is listed in [`.env.example`](./.env.example) with a placeholder. On Replit, set them in **Secrets**. Never commit real values.
+
+| Variable | Sim | Live | Where to get it |
+|---|---|---|---|
+| `MODE` | `sim` | `live` | `sim` uses mock X / market / chain / executor with a seeded simulated token. `live` uses the real APIs. |
+| `SIM_SPEED` | optional | ignored | Time multiplier in sim (default 10, so 1 hour = 6 min). |
+| `DATABASE_URL` | **required** | **required** | Replit → Tools → Database → PostgreSQL (set automatically). Neon also works. |
+| `ADMIN_TOKEN` | **required** for /admin | **required** | Generate it yourself: `openssl rand -hex 32`. Protects `/admin` and `/admin/api/*`. |
+| `ANTHROPIC_API_KEY` | recommended | **required** | [console.anthropic.com](https://console.anthropic.com) → API Keys. Baby uses `claude-sonnet-5-5` (posts, replies, observations, proposals) and `claude-haiku-5-5` (mention ranking, slang extraction). |
+| `LLM_PROVIDER` | optional | — | `mock` forces the keyless placeholder brain (sim only, refused in live). Default `anthropic`. |
+| `X_API_KEY`, `X_API_SECRET` | — | **required** | [developer.x.com](https://developer.x.com) → Developer Portal → your Project → App → **Keys and tokens** → API Key and Secret. Set **User authentication settings → App permissions = Read and write** first. |
+| `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` | — | **required** | Same page → **Access Token and Secret**. Generate it while logged in as the **Baby account**, *after* setting Read and write, or posting will 403. |
+| `X_BEARER_TOKEN` | — | recommended | Same page → **Bearer Token**. Used for reading mentions. |
+| `X_BOT_HANDLE`, `X_BOT_USER_ID` | — | optional | The Baby account's handle (no @) and numeric id. Auto-detected via `/2/users/me` if omitted. Set `X_BOT_HANDLE` so the site's X link works. |
+| `X_DAILY_BUDGET_USD` | optional | recommended | Hard daily X spend cap (default `$5`). Calls past it are refused and logged publicly. |
+| `X_COST_POST_USD`, `X_COST_READ_USD` | optional | **check** | Per-call cost estimates used for the budget. **Update them to current X pay-per-use pricing.** |
+| `X_WRITES_DISABLED` | — | test only | `true` reads X but never posts (live test mode). |
+| `HELIUS_API_KEY` / `HELIUS_RPC_URL` | — | **required** | [dashboard.helius.dev](https://dashboard.helius.dev) → API Keys. The RPC URL is `https://mainnet.helius-rpc.com/?api-key=…`. Only one of the two is needed. |
+| `JUPITER_API_KEY` | — | needed after migration | Jupiter Developer Platform ([developers.jup.ag](https://developers.jup.ag)) → API keys. Used for buybacks once the token leaves the pump.fun bonding curve (Swap API v2). |
+| `PUMPPORTAL_API_KEY` | — | optional | [pumpportal.fun](https://pumpportal.fun). Not needed for the local trade API. May be needed for PumpSwap (post-migration) trade data on the websocket. |
+| `BIRDEYE_API_KEY` | — | optional | Not used in v1. |
+| `TOKEN_MINT` | auto | **required at launch** | The pump.fun mint address. Can also be set from `/admin`. |
+| `TOKEN_NAME`, `TOKEN_SYMBOL` | optional | optional | Display fallbacks. On-chain metadata is preferred in live. |
+| `LAUNCH_TIMESTAMP` | optional | **required at launch** | ISO UTC time of T+0, e.g. `2026-10-10T18:00:00Z`. Can also be set from `/admin` ("LAUNCH NOW"). |
+| `TREASURY_PUBKEY` | — | **required** | Public key of a **fresh, dedicated** treasury wallet. |
+| `TREASURY_PRIVATE_KEY` | — | **required** | That wallet's base58 secret key, e.g. Phantom → Export Private Key, or `solana-keygen new` then base58-encode. **Only** `server/services/adapters/live/executor.ts` reads it, and it is checked against `TREASURY_PUBKEY`. |
+| `MAX_BUYBACK_SOL_PER_TX` … `MAX_SLIPPAGE_BPS` | optional | tune | Guardian limits. Defaults are in [`server/config/limits.ts`](./server/config/limits.ts) (0.5 per tx, 2/hour, 5/day, 3 SOL reserve, 240s cooldown, 500 bps). |
+| `FIRST_BUYBACK_SOL` | optional | optional | Fixed amount for the T+4 first buyback (default 0.2). |
+| `TRUST_PROXY_HOPS` | optional | optional | Reverse proxies in front of the app (Replit = 1). Used to get the real client IP for chat rate limits. |
+
+Fund the treasury with at least `MIN_TREASURY_RESERVE_SOL` plus the amount you're willing to spend (for example 3 + 5 SOL with the defaults).
+
+---
+
+## 3. Sim mode (dry run)
+
+```bash
+MODE=sim                 # default
+SIM_SPEED=10             # 10 = 6-minute hour; 60 = 1-minute hour
+ANTHROPIC_API_KEY=…      # real LLM (recommended); omit to use the [MOCK-LLM] placeholder
+```
+
+- X: mentions come from a seeded generator (fans, a recurring supporter, scammers, a minor-flagged user). Posts are logged, not sent, and get a `/sim/x/<id>` proof page.
+- Market and chain: a deterministic simulated pump.fun bonding curve with scripted beats. An early wallet dumps at ~T+7m, a whale buys 12 SOL at ~T+33m, and there's a later dump.
+- Executor: buybacks move the simulated curve and get a fake signature with a `/sim/tx/<sig>` proof page.
+- Everything else is real: the engine, Guardian, memory, people, slang, content filter, X budget, kill switches.
+- `/admin` → **RUN FULL FIRST HOUR** resets all run state and launches now. **RESET TO GESTATING** clears it.
+- The sim is restart-safe. Kill the process mid-hour and it resumes; steps never re-fire.
+
+Locally (outside Replit): Postgres + `cp .env.example .env` + `npm ci` + `npm run replit`.
+
+---
+
+## 4. Live test mode (before launch)
+
+Validate the real APIs and the real swap path with a **tiny throwaway token** on mainnet. pump.fun has no usable devnet.
+
+1. Create a test token on pump.fun from a throwaway wallet. Use a **separate** throwaway treasury wallet funded with about 0.2 SOL.
+2. Secrets:
+   ```
+   MODE=live
+   X_WRITES_DISABLED=true          # read mentions, never post
+   FIRST_BUYBACK_SOL=0.01
+   MAX_BUYBACK_SOL_PER_TX=0.01
+   MIN_TREASURY_RESERVE_SOL=0.05
+   TOKEN_MINT=<test mint>
+   TREASURY_PUBKEY=… / TREASURY_PRIVATE_KEY=…
+   HELIUS_API_KEY=…  ANTHROPIC_API_KEY=…  X_* keys
+   ```
+3. Run, open `/admin`, and click **LAUNCH NOW**. Watch the terminal:
+   - T+2 READ_TOKEN shows the real supply, mcap and treasury
+   - T+4 executes a real **0.01 SOL** buyback. The action row links to Solscan, and the server log shows `[executor] preflight ok · programs …`
+   - T+6 / T+8 show real holders and trades (from the PumpPortal websocket)
+   - T+10+ reads real mentions; posts are logged as "X writes disabled — NOT sent"
+4. To test posting, remove `X_WRITES_DISABLED` on a test X account.
+5. If the token migrates during testing, the next buyback goes through Jupiter. Check the log line listing the programs it touched (see §7).
+
+---
+
+## 5. Launch day
+
+1. Fund the real treasury. Set the `MODE=live` secrets. Remove `X_WRITES_DISABLED`. Tune Guardian limits.
+2. **Before** launch: set `TOKEN_MINT` (or set it from `/admin`) and `LAUNCH_TIMESTAMP` to the planned T+0. The site shows GESTATING with a countdown.
+3. Deploy as a **Reserved VM**.
+4. At T+0 the engine fires BIRTH: Baby posts `hi` (the only hardcoded line). Everything after that is generated from live data.
+5. Keep `/admin` open. Kill switches: **pause X posting**, **pause chat**, **freeze treasury**, **disable autonomous loop**, **force-skip a step**, **set LAUNCH_TIMESTAMP / TOKEN_MINT**. Every use is logged publicly as `HUMAN SAFETY OVERRIDE ACTIVATED`.
+
+---
+
+## 6. Architecture (one process)
+
+```
+server/
+  index.ts                 boot: migrations → settings → adapters → engine, pollers, autonomy loop, web + Socket.IO
+  env.ts                   zod-validated env (treasury key deliberately NOT parsed here)
+  config/timeline.ts       the schedule: 31 wired first-hour steps + Hour 6 … Day 6 locked stubs
+  config/limits.ts         Guardian limits, autonomy caps, program whitelist
+  prompts/*.md             base rules + stage voices (birth / early / cortex / analytical)
+  services/
+    engine.ts              fires each step exactly once (DB-claimed); restart-safe
+    capabilities.ts        flags in DB; requireCap() throws when locked
+    orchestrator.ts        runTask(): stage prompt + capabilities + memories + live data → Claude → zod → events
+    llm.ts / mockLLM.ts    Anthropic SDK structured outputs / keyless placeholder (sim only)
+    tasks/index.ts         one handler per timeline task
+    autonomy.ts            from T+12: observe → detect change → decide → Guardian → act (caps enforced)
+    guardian.ts            pure deterministic evaluate(proposal, state) — unit tested
+    proposals.ts flows.ts  propose → review → (re-propose once) → execute
+    executor.ts            Guardian re-check + kill switch → adapter.buyback → action row with proof
+    social.ts              X post/reply/mentions, content filter, budget, caps, minor block
+    market.ts solana.ts    pollers (system) + gated views for Baby
+    memory.ts              memories, people (first_seen_age_s), interactions, slang
+    events.ts state.ts     event bus → DB + Socket.IO; cached public state, delta broadcasts
+    adapters/sim/*         seeded simulated world
+    adapters/live/*        Helius, DexScreener + pump.fun curve, PumpPortal ws, X v2, live executor
+client/                    React + Vite + Tailwind; three.js particle baby (lazy-loaded, FPS fallback)
+public/                    baby.png, stages.png, stages/*.png
+```
+
+**Wiring Day 1–6 later:** implement the task handler in `server/services/tasks/index.ts`, set the step's `task`, and flip `wired: true` in `server/config/timeline.ts`. Nothing else changes. The site already renders them as LOCKED with countdowns.
+
+---
+
+## 7. Verify on Replit (could not be tested from the build environment)
+
+The build environment's network policy blocked Helius, X, PumpPortal, DexScreener and Jupiter, so the **live adapters are written against the documented APIs and unit-tested on their pure parts, but not yet exercised against the real services.** Check these during the live test (§4):
+
+- [ ] **Helius DAS** `getTokenAccounts` / `getAsset` response shape (holder counts look right on the site).
+- [ ] **pump.fun bonding-curve decode**: price and mcap on the site match pump.fun.
+- [ ] **PumpPortal websocket** trades arrive (log: `[pumpportal] subscribed …`). If post-migration data needs a key, set `PUMPPORTAL_API_KEY`.
+- [ ] **PumpPortal `trade-local`** buy works with `denominatedInSol: "true"`, `slippage` in percent, `pool: "pump"`.
+- [ ] **Jupiter Swap API v2** (`GET /swap/v2/order` → sign → `POST /swap/v2/execute`, header `x-api-key`). If a route touches a program not in `ALLOWED_PROGRAMS`, the executor refuses and falls back to PumpSwap via PumpPortal (`pool: "pump-amm"`). To allow more programs, add their IDs to `server/config/limits.ts` **after verifying them**.
+- [ ] **X**: mentions timeline, post and reply with your app's access level. Update `X_COST_*` to current pricing.
+
+Safety checks that run before every live signature (all unit-tested): only whitelisted top-level programs; the treasury must be a required signer; a simulation must show the treasury debited at most the approved amount + 0.03 SOL; and the Guardian is re-evaluated immediately before signing.
+
+---
+
+## 8. Commands
+
+```bash
+npm run replit      # build frontend + start server (what the Run button does)
+npm start           # production start (expects a prior `npm run build`)
+npm run build       # build frontend to dist/
+npm run dev         # server only, watch mode
+npm run dev:client  # Vite dev server on :5173 (proxies /api, /admin/api, /socket.io to :5000)
+npm test            # unit tests (Guardian, executor checks, content filter, gating, timeline, sim)
+npm run typecheck
+npx drizzle-kit generate   # after editing server/db/schema.ts (migrations apply on boot)
+```
+
+---
+
+## 9. Acceptance checklist (spec §12): status in sim
+
+- [x] Full sim hour runs end-to-end with no manual intervention (31/31 steps, 0 crashes)
+- [x] Every step fires once; restart mid-hour resumes correctly (killed at T+20, resumed, 31 distinct, no duplicates; trades continuous across downtime)
+- [x] No Baby line is hardcoded except `hi` (all other Baby text comes from the LLM; the mock is tagged `[MOCK-LLM]` and refused in live)
+- [x] Every action row has a proof link (Solscan / X in live; `/sim/*` in sim; failed buybacks link to their public failure record)
+- [x] Guardian rejects oversized / too-frequent / reserve-breaking proposals (unit tests + seen live in sim)
+- [x] Executor refuses txs touching non-whitelisted programs (unit tests)
+- [x] All kill switches work and log HUMAN events
+- [x] X spend tracked, daily budget cap enforced (budget-bounded fetch sizes limit overshoot)
+- [x] Site works on mobile (no horizontal overflow at 390px); particle baby lazy-loads with automatic static fallback below 30fps / low-end / reduced-motion. **Measure real fps on a mid phone.**
+- [x] Locked Day 1–6 capabilities render with correct countdowns
+- [ ] Live adapters exercised against real APIs (§7)
+
+Load test (1 process, sim running): 1,000 concurrent Socket.IO clients, 0 failures; `/api/state` ~2,900 req/s at p95 32 ms, 0 errors.
