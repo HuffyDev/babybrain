@@ -16,7 +16,7 @@ This repo is a complete, sim-tested build. It runs end-to-end with **no API keys
    - `ANTHROPIC_API_KEY`: needed for Baby to actually think. Without it, sim mode falls back to the `[MOCK-LLM]` placeholder brain.
 4. Press **Run**. This runs `npm run build && npm start`, which builds the frontend and starts the single server process on port 5000 (mapped to port 80). There is no database setup step: the app creates and migrates its tables on boot.
 5. Open the webview. The site shows **GESTATING**.
-6. Open `/admin`, paste your `ADMIN_TOKEN`, and click **RUN FULL FIRST HOUR**. At the default `SIM_SPEED=1` it runs in real time (clock ticks normally, development roughly every two minutes). Set `SIM_SPEED=10` to play the hour in 6 minutes for testing.
+6. Open `/admin`, paste your `ADMIN_TOKEN`, and click **RUN FULL FIRST HOUR**. At the default `SIM_SPEED=10` the first hour of development plays out in 6 real minutes (a new step every ~12s). The clocks and every time label on the site show real elapsed time; only development is accelerated.
 
 **Deploying:** Deploy → **Reserved VM** (already configured in `.replit`). Do **not** use Autoscale: the development engine, pollers, websockets and autonomous loop must run continuously, and Autoscale scales to zero.
 
@@ -29,7 +29,7 @@ Every variable is listed in [`.env.example`](./.env.example) with a placeholder.
 | Variable | Sim | Live | Where to get it |
 |---|---|---|---|
 | `MODE` | `sim` | `live` | `sim` uses mock X / market / chain / executor with a seeded simulated token. `live` uses the real APIs. |
-| `SIM_SPEED` | optional | ignored | Time multiplier in sim. Default 1 = real time. 10 = 1 hour in 6 min, 60 = 1 hour in 1 min (testing only; the clock and everything else speed up together). |
+| `SIM_SPEED` | optional | ignored | Development speed in sim (default 10 = first hour in 6 real min; 1 = real pace). Clocks and time labels always show real elapsed time. Ignored in live. |
 | `DATABASE_URL` | **required** | **required** | Replit → Tools → Database → PostgreSQL (set automatically). Neon also works. |
 | `ADMIN_TOKEN` | **required** for /admin | **required** | Generate it yourself: `openssl rand -hex 32`. Protects `/admin` and `/admin/api/*`. |
 | `ANTHROPIC_API_KEY` | recommended | **required** | [console.anthropic.com](https://console.anthropic.com) → API Keys. Baby uses `claude-sonnet-5-5` (posts, replies, observations, proposals) and `claude-haiku-5-5` (mention ranking, slang extraction). |
@@ -64,7 +64,7 @@ Fund the treasury with at least `MIN_TREASURY_RESERVE_SOL` plus the amount you'r
 
 ```bash
 MODE=sim                 # default
-SIM_SPEED=1              # real time (default); 10 = 6-minute hour; 60 = 1-minute hour
+SIM_SPEED=10             # development speed (default): first hour in 6 real min; 1 = real pace
 ANTHROPIC_API_KEY=…      # real LLM (recommended); omit to use the [MOCK-LLM] placeholder
 ```
 

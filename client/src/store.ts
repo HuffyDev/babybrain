@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { io, type Socket } from "socket.io-client";
 import type { PublicEvent, PublicState } from "@shared/types";
+import { setDisplaySpeed } from "./format";
 
 interface Store {
   state: PublicState | null;
@@ -26,7 +27,10 @@ export function connect() {
   socket = io({ transports: ["websocket", "polling"] });
   socket.on("connect", () => set({ connected: true }));
   socket.on("disconnect", () => set({ connected: false }));
-  socket.on("state", (state: PublicState) => set({ state, receivedAt: Date.now() }));
+  socket.on("state", (state: PublicState) => {
+    setDisplaySpeed(state.simSpeed);
+    set({ state, receivedAt: Date.now() });
+  });
   socket.on("state:patch", (patch: Partial<PublicState>) => {
     if (store.state) set({ state: { ...store.state, ...patch }, receivedAt: Date.now() });
   });

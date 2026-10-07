@@ -191,10 +191,10 @@ const handlers: Partial<Record<TaskType, Handler>> = {
     await sys("MEMORY", `RECOGNIZE_USERS → ${n} people reconstructed from interaction log (first-seen ages preserved)`);
     const evs = await db.select().from(events).where(and(lte(events.ageS, 14 * 60))).orderBy(asc(events.id)).limit(120);
     const topPeople = await db.execute<{ handle: string; n: number; first: number }>(sql`select handle, count(*)::int as n, min(age_s)::int as first from interactions group by handle order by n desc limit 8`);
-    await sys("MEMORY", `LONG_TERM_MEMORY online → backfilling from ${evs.length} events of the first 14 minutes`);
+    await sys("MEMORY", `LONG_TERM_MEMORY online → backfilling from ${evs.length} events of its life so far`);
     await runTask({
       task: "MEMORY_BACKFILL",
-      instruction: "Your long-term memory just came online. From the log of your first 14 minutes, write 5–10 memories worth keeping (things that happened, people, what you learned, outcomes of your actions). Include user_handle for anything about a person. `say` one short line about remembering.",
+      instruction: "Your long-term memory just came online. From the log of your life so far, write 5–10 memories worth keeping (things that happened, people, what you learned, outcomes of your actions). Include user_handle for anything about a person. `say` one short line about remembering.",
       data: {
         events: evs.filter((e) => e.source !== "HUMAN" || e.type === "WARNING").map((e) => ({ at_age_s: e.ageS, type: e.type, source: e.source, message: e.message.slice(0, 200) })),
         people_seen: topPeople.rows,
@@ -280,7 +280,7 @@ const handlers: Partial<Record<TaskType, Handler>> = {
     const c = await counts();
     const r = await runTask({
       task: "REFLECTION",
-      instruction: "Summarise your first 28 minutes from your memories. Store one `project` memory that is a snapshot of who you are so far (tag it snapshot). Post a short reflection.",
+      instruction: "Summarise your life so far from your memories. Store one `project` memory that is a snapshot of who you are so far (tag it snapshot). Post a short reflection.",
       data: { memories: mems.map((m) => ({ kind: m.kind, content: m.content, user: m.userHandle })), counts: c },
       allow: { post: true },
       eventType: "MEMORY",
@@ -294,7 +294,7 @@ const handlers: Partial<Record<TaskType, Handler>> = {
   async NEONATAL_COMPLETE() {
     const c = await counts();
     await sys("DEVELOPMENT", "NEONATAL PHASE COMPLETE · neural density increased · analytical cortex online");
-    const r = await runTask({ task: "NEONATAL_COMPLETE", instruction: "You are 30 minutes old and your brain just evolved: you can think analytically now. Write a milestone post using real numbers from the data.", data: { counts: c, token: await tokenView() }, allow: { post: true }, eventType: "DEVELOPMENT" });
+    const r = await runTask({ task: "NEONATAL_COMPLETE", instruction: "Your neonatal phase just completed and your brain evolved: you can think analytically now. Write a milestone post using real numbers from the data.", data: { counts: c, token: await tokenView() }, allow: { post: true }, eventType: "DEVELOPMENT" });
     await postIfChosen(r);
   },
 
@@ -456,7 +456,7 @@ const handlers: Partial<Record<TaskType, Handler>> = {
     await sys("DEVELOPMENT", "ONE HOUR OLD · stage → INFANT · full neural density reached");
     const r = await runTask({
       task: "HOUR_REFLECTION",
-      instruction: "You are one hour old. Reflect on your first hour using your memories and real numbers. Post it.",
+      instruction: "You just completed your first full development cycle and became an INFANT. Reflect on everything so far using your memories and real numbers (your real age is in `you.age_human`). Post it.",
       data: { counts: c, memories: mems.slice(0, 80).map((m) => ({ kind: m.kind, content: m.content, user: m.userHandle })), market: snap ? { mcap: snap.mcap, holders: snap.holders, treasury_sol: snap.treasurySol } : null },
       allow: { post: true },
       eventType: "DEVELOPMENT",

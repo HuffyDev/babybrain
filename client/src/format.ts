@@ -1,5 +1,15 @@
 const pad = (n: number) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
 
+/**
+ * Development runs SIM_SPEED× faster than real time in sim mode, but everything shown to people is real elapsed
+ * time. Ages/offsets stored by the server are in development-seconds; divide by the speed for display.
+ */
+let speed = 1;
+export function setDisplaySpeed(s: number) {
+  speed = s > 0 ? s : 1;
+}
+export const toReal = (devSeconds: number) => devSeconds / speed;
+
 /** 00D 00H 12M 04S */
 export function fmtClock(sec: number | null): string {
   if (sec === null || !isFinite(sec)) return "00D 00H 00M 00S";
@@ -20,14 +30,18 @@ export function fmtCountdown(sec: number | null): string {
   return `${pad(m)}m ${pad(r)}s`;
 }
 
-export function fmtT(t: number): string {
+/** Schedule offset (development-seconds) → real time label. */
+export function fmtT(devT: number): string {
+  const t = Math.round(toReal(devT));
   if (t >= 86400) return `DAY ${Math.round(t / 86400)}`;
   if (t >= 3600) return `HOUR ${Math.round(t / 3600)}`;
   return `T+${pad(t / 60)}:${pad(t % 60)}`;
 }
 
-export function fmtAgeShort(s: number | null): string {
-  if (s === null) return "—";
+/** Age (development-seconds) → real elapsed time, e.g. "12m old". */
+export function fmtAgeShort(devS: number | null): string {
+  if (devS === null) return "—";
+  const s = toReal(devS);
   if (s < 60) return `${Math.floor(s)}s old`;
   if (s < 3600) return `${Math.floor(s / 60)}m old`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m old`;
@@ -52,4 +66,11 @@ export function shortSig(s: string | null, n = 6): string {
 
 export function timeOf(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour12: false });
+}
+
+/** Real interval between first-hour development steps (they are 120 development-seconds apart). */
+export function stepPace(): string {
+  const r = Math.round(toReal(120));
+  if (r >= 120 && r % 60 === 0) return r === 120 ? "two minutes" : `${r / 60} minutes`;
+  return r >= 60 ? `${Math.round(r / 60)} minute${Math.round(r / 60) === 1 ? "" : "s"}` : `${r} seconds`;
 }

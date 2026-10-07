@@ -1,6 +1,6 @@
 import type { Stage } from "@shared/types";
 import { useAge, realSeconds } from "../hooks";
-import { fmtCountdown, fmtT } from "../format";
+import { fmtCountdown, fmtT, stepPace } from "../format";
 import { BabyVisual } from "./BabyVisual";
 import { useStore } from "../store";
 
@@ -112,7 +112,7 @@ export function Hero() {
                   </div>
                 )
               ) : (
-                <Clock sec={a} />
+                <Clock sec={realSeconds(a, speed)} />
               )}
             </div>
 
@@ -170,7 +170,7 @@ export function Hero() {
             </div>
 
             <p className="max-w-xl text-[14px] leading-relaxed text-dim">
-              A newborn AI, born at token launch. In its opening phase it develops roughly every two minutes: new senses, new words, new instincts.
+              A newborn AI, born at token launch. In its opening phase it develops roughly every {stepPace()}: new senses, new words, new instincts.
               Every action it takes is real and linked, and a deterministic Guardian checks every move it makes with the treasury.
             </p>
           </div>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { AnatomyPart } from "@shared/types";
 import { useStore } from "../store";
 import { useAge, realSeconds } from "../hooks";
-import { fmtAgeShort, fmtCountdown, fmtSol, fmtT, fmtUsd, shortSig, timeOf } from "../format";
+import { fmtAgeShort, fmtCountdown, fmtSol, fmtT, fmtUsd, shortSig, stepPace, timeOf } from "../format";
 import { stageIcon } from "./stageIcons";
 import { EmptyState, Icon, Module, StatusTag } from "./ui";
 
@@ -232,7 +232,7 @@ export function Timeline() {
   const done = hour.filter((s) => s.fired).length;
 
   return (
-    <Module index="08" title="Development timeline" meta={`${done}/${hour.length} first-hour steps · one every ~2 min`}>
+    <Module index="08" title="Development timeline" meta={`${done}/${hour.length} first-hour steps · one every ~${stepPace()}`}>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <div className="panel px-2 py-2 sm:px-3">
           <ol className="relative">

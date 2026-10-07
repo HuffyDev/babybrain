@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EventType, PublicEvent, Source } from "@shared/types";
 import { useStore } from "../store";
-import { timeOf } from "../format";
+import { timeOf, toReal } from "../format";
 import { Icon, Module } from "./ui";
 
 /** Type → treatment. Monochrome hierarchy; red is reserved for warnings. */
@@ -37,8 +37,9 @@ export function SourceBadge({ source }: { source: Source }) {
   );
 }
 
-const ageStamp = (s: number | null) => {
-  if (s === null) return "—";
+const ageStamp = (devS: number | null) => {
+  if (devS === null) return "—";
+  const s = toReal(devS);
   const m = Math.floor(s / 60);
   return m >= 60 ? `T+${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `T+${String(m).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 };

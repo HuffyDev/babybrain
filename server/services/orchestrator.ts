@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { EventType, TaskType } from "../../shared/types";
 import { callJSON, BabyOutput, LLMRefusal, type Tier } from "./llm";
 import { capabilityMap, hasCap } from "./capabilities";
-import { ageS, fmtAge } from "./clock";
+import { ageS, fmtAge, speed } from "./clock";
 import { emit } from "./events";
 import { knownWords, learnWord, recall, remember } from "./memory";
 import { stageAt } from "../config/timeline";
@@ -72,7 +72,7 @@ export async function runTask(input: RunInput): Promise<RunResult | null> {
   const system = [
     prompt("base"),
     prompt(`stage_${tier}`),
-    personality ? `## Your personality (written by you at 42 minutes old)\n${personality}` : "",
+    personality ? `## Your personality (written by you earlier)\n${personality}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -89,7 +89,7 @@ export async function runTask(input: RunInput): Promise<RunResult | null> {
     {
       task: input.task,
       instruction: input.instruction,
-      you: { age_seconds: age, age_human: fmtAge(age), stage: stageAt(age), unlocked_capabilities: unlocked },
+      you: { age_seconds_real: Math.round(age / speed), age_human: fmtAge(age), stage: stageAt(age), unlocked_capabilities: unlocked },
       output_permissions: permissions,
       known_words: tier === "cortex" || tier === "analytical" ? words : undefined,
       memories: mems.length

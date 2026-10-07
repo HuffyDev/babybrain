@@ -10,8 +10,8 @@ const schema = z.object({
   NODE_ENV: z.string().default("development"),
   PORT: z.coerce.number().default(5000),
   MODE: z.enum(["sim", "live"]).default("sim"),
-  /** sim time multiplier. 1 = real time (clock ticks 1s/s, development every ~2 min). >1 compresses for testing. */
-  SIM_SPEED: z.coerce.number().positive().default(1),
+  /** sim development speed. 10 = the first hour of development plays out in 6 real minutes. Clocks always show real time. */
+  SIM_SPEED: z.coerce.number().positive().default(10),
   /** anthropic | mock. Mock is only for keyless local testing and is refused in live mode. */
   LLM_PROVIDER: z.enum(["anthropic", "mock"]).default("anthropic"),
   LLM_MODEL_MAIN: z.string().default("claude-sonnet-5-5"),

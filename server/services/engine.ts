@@ -3,7 +3,7 @@ import { db } from "../db/client";
 import { timelineFired } from "../db/schema";
 import { TIMELINE, stepById } from "../config/timeline";
 import type { TimelineStep } from "../../shared/types";
-import { ageAt, ageS } from "./clock";
+import { ageAt, ageS, fmtT } from "./clock";
 import { emit, markDirty } from "./events";
 import { capabilityMap, unlock } from "./capabilities";
 import { runStepTask } from "./tasks";
@@ -46,7 +46,7 @@ async function fire(step: TimelineStep) {
     type: step.id === "birth" ? "BIRTH" : "DEVELOPMENT",
     source: "SYSTEM",
     message:
-      `T+${Math.round(step.t / 60)}m ${step.label}` + (step.unlocks.length ? ` — unlocked ${step.unlocks.join(", ")}` : ""),
+      `${fmtT(step.t)} ${step.label}` + (step.unlocks.length ? ` — unlocked ${step.unlocks.join(", ")}` : ""),
     data: { stepId: step.id, unlocks: step.unlocks, brainLevel: step.brainLevel, stage: step.stage },
   });
   queue.push(`step:${step.id}`, async () => {
@@ -101,7 +101,7 @@ export async function skipStep(stepId: string): Promise<{ ok: boolean; error?: s
   await emit({
     type: "DEVELOPMENT",
     source: "HUMAN",
-    message: `T+${Math.round(step.t / 60)}m ${step.label} skipped by operator` + (step.unlocks.length ? ` — unlocked ${step.unlocks.join(", ")}` : ""),
+    message: `${fmtT(step.t)} ${step.label} skipped by operator` + (step.unlocks.length ? ` — unlocked ${step.unlocks.join(", ")}` : ""),
     data: { stepId, skipped: true },
   });
   markDirty();

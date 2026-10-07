@@ -32,7 +32,21 @@ export function realMs(babySeconds: number): number {
   return (babySeconds * 1000) / speed;
 }
 
-export function fmtAge(s: number): string {
+/** Real-time label for a development-time offset, e.g. T+01:12 (what people see on the clock). */
+export function fmtT(devSeconds: number): string {
+  const r = Math.max(0, Math.round(devSeconds / speed));
+  const h = Math.floor(r / 3600);
+  const mm = String(Math.floor((r % 3600) / 60)).padStart(2, "0");
+  const ss = String(r % 60).padStart(2, "0");
+  return h ? `T+${h}h${mm}m` : `T+${mm}:${ss}`;
+}
+
+/**
+ * Human age for a development-time duration, expressed in REAL elapsed time — the same time the public clock shows.
+ * (Development may be SIM_SPEED× faster; what Baby says about its age always matches the clock.)
+ */
+export function fmtAge(devSeconds: number): string {
+  const s = devSeconds / speed;
   const m = Math.floor(s / 60);
   if (m < 1) return `${Math.floor(s)} seconds`;
   if (m < 60) return `${m} minute${m === 1 ? "" : "s"}`;
