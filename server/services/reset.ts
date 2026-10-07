@@ -4,6 +4,9 @@ import { loadCapabilities } from "./capabilities";
 import { loadFired } from "./engine";
 import { queue } from "./queue";
 import { resetHooks } from "./resetHooks";
+import { setSetting } from "./settings";
+import { isSim } from "../env";
+import { rebuildSimWorld } from "./adapters/sim";
 
 const TABLES = [
   "capabilities",
@@ -28,5 +31,10 @@ export async function resetSim() {
   await db.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY`));
   await loadCapabilities();
   await loadFired();
+  // clear launch first so the sim world is rebuilt at age 0 (callers set a new launch afterwards)
+  await setSetting("launchAt", null);
+  await setSetting("personality", null);
+  await setSetting("supporterHandle", null);
+  if (isSim) await rebuildSimWorld();
   for (const h of resetHooks) await h();
 }

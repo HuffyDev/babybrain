@@ -99,6 +99,9 @@ function Line({ e }: { e: PublicEvent }) {
       <SourceBadge source={e.source} />
       <span className={`min-w-0 flex-1 break-words ${e.source === "BABY" ? "text-ink" : "text-dim"}`}>
         {e.message}
+        {typeof e.data?.reasoning === "string" && e.data.reasoning && (
+          <span className="block text-[11px] text-mute">↳ {e.data.reasoning as string}</span>
+        )}
         {e.proofUrl && (
           <a href={e.proofUrl} target="_blank" rel="noreferrer" className="ml-2 text-ice underline decoration-ice/40 underline-offset-2">
             proof ↗

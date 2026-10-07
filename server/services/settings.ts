@@ -12,6 +12,10 @@ export interface Settings {
   treasuryFrozen: boolean;
   autonomyEnabled: boolean;
   simSeed: number;
+  /** generated at T+42 from memories; fed into later prompts */
+  personality: string | null;
+  /** first major supporter identified at T+32 */
+  supporterHandle: string | null;
 }
 
 const defaults = (): Settings => ({
@@ -24,6 +28,8 @@ const defaults = (): Settings => ({
   treasuryFrozen: false,
   autonomyEnabled: true,
   simSeed: 1337,
+  personality: null,
+  supporterHandle: null,
 });
 
 let cache: Settings = defaults();
