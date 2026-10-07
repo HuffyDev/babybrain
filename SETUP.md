@@ -10,7 +10,7 @@ This repo is a complete, sim-tested build. It runs end-to-end with **no API keys
 ## 1. Import into Replit
 
 1. **Create Repl → Import from GitHub** → this repo (branch `claude/replit-migration-apis-tblgmi` or `main` once merged).
-2. **Add a database:** Tools → **Database** → create **PostgreSQL**. Replit sets `DATABASE_URL` for you. Tables are created automatically on boot from the migrations in `/drizzle`.
+2. **Add a database:** Tools → **Database** → create **PostgreSQL**. Replit sets `DATABASE_URL` for you. Tables are created automatically on boot from the migrations in `/drizzle`. If the tables already exist without drizzle's migration journal (Replit publish pre-creates them in production), boot *baselines* instead: it records the journal, creates only what's missing (tables, indexes, columns) and logs exactly what it did. Existing data is never touched.
 3. **Add secrets:** Tools → **Secrets**. At minimum for the first sim run:
    - `ADMIN_TOKEN`: any long random string, e.g. the output of `openssl rand -hex 32`
    - `ANTHROPIC_API_KEY`: needed for Baby to actually think. Without it, sim mode falls back to the `[MOCK-LLM]` placeholder brain.
@@ -197,6 +197,7 @@ npm run build       # build frontend to dist/
 npm run dev         # server only, watch mode
 npm run dev:client  # Vite dev server on :5173 (proxies /api, /admin/api, /socket.io to :5000)
 npm test            # unit tests (Guardian, executor checks, content filter, gating, timeline, sim)
+TEST_ADMIN_DATABASE_URL=postgres://user:pass@host/postgres npm test   # + migration integration tests (needs CREATE DATABASE)
 npm run check:live  # read-only PASS/FAIL check of every real API (see §4)
 npm run typecheck
 npx drizzle-kit generate   # developers only, after editing server/db/schema.ts: writes a new migration that is applied automatically on next boot

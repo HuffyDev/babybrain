@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { env } from "../env";
 import * as schema from "./schema";
+import { runIdempotentMigrations } from "./migrate";
 
 const ssl =
   /sslmode=require/.test(env.DATABASE_URL) || /neon\.tech/.test(env.DATABASE_URL)
@@ -18,5 +19,16 @@ export type DB = typeof db;
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export async function runMigrations() {
-  await migrate(db, { migrationsFolder: path.resolve(here, "../../drizzle") });
+  const folder = path.resolve(here, "../../drizzle");
+  const report = await runIdempotentMigrations(pool, folder, () => migrate(db, { migrationsFolder: folder }));
+  if (report.mode === "baselined") {
+    console.log(
+      `[db] tables existed without a migrations journal — baselined: ${report.applied.length} statement(s) applied, ` +
+        `${report.skipped.length} already present, ${report.addedColumns.length} column(s) added`,
+    );
+    for (const s of report.applied) console.log(`[db]   created: ${s}`);
+    for (const s of report.addedColumns) console.log(`[db]   added column: ${s}`);
+    for (const s of report.missingColumnsNotAdded) console.warn(`[db]   MISSING COLUMN (not auto-added): ${s}`);
+  }
+  return report;
 }
