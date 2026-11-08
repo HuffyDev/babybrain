@@ -6,6 +6,7 @@ import { emit, markDirty } from "../services/events";
 import { getSettings, setSetting } from "../services/settings";
 import { adminStatus, skipStep } from "../services/engine";
 import { resetSim } from "../services/reset";
+import { importTreasuryKey, removeImportedTreasuryKey, treasuryWalletStatus } from "../services/treasuryWallet";
 
 function authorized(req: FastifyRequest): boolean {
   if (!env.ADMIN_TOKEN) return false;
@@ -79,6 +80,30 @@ export async function adminRoutes(app: FastifyInstance) {
     }
     markDirty();
     return { ok: true, settings: getSettings() };
+  });
+
+  app.get("/wallet", async () => treasuryWalletStatus());
+
+  // The body carries a private key: it is never echoed, logged or put in an event. Only the pubkey is published.
+  app.post("/wallet/import", async (req, reply) => {
+    const body = z.object({ secretKey: z.string().min(1).max(1024) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "paste a private key (base58 or JSON byte array)" });
+    try {
+      const r = await importTreasuryKey(body.data.secretKey);
+      await human(`treasury wallet imported: ${r.pubkey}${r.previous && r.previous !== r.pubkey ? ` (replaces ${r.previous})` : ""}`, { pubkey: r.pubkey, previous: r.previous });
+      markDirty();
+      return { ok: true, ...treasuryWalletStatus() };
+    } catch (e) {
+      return reply.code(400).send({ error: e instanceof Error ? e.message : "import failed" });
+    }
+  });
+
+  app.post("/wallet/remove", async (_req, reply) => {
+    const r = await removeImportedTreasuryKey();
+    if (!r.removed) return reply.code(400).send({ error: "no imported treasury wallet" });
+    await human(`imported treasury wallet ${r.removed} removed; treasury now ${r.now ?? "unset"}`, { removed: r.removed, now: r.now });
+    markDirty();
+    return { ok: true, ...treasuryWalletStatus() };
   });
 
   app.post("/skip-step", async (req, reply) => {

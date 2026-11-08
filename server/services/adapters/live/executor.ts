@@ -3,12 +3,14 @@ import bs58 from "bs58";
 import { env } from "../../../env";
 import { getSettings } from "../../settings";
 import { assertDebitWithin, assertProgramsAllowed, assertTreasurySigner } from "../../txCheck";
+import { importedTreasuryKeypair, treasuryKeyVersion, treasuryPubkey } from "../../treasuryWallet";
 import type { ExecutorAdapter, SwapResult } from "../types";
 import { connection, fetchJson } from "./rpc";
 import { isMigrated } from "./market";
 
 /**
- * LIVE EXECUTOR. The only file in the codebase that reads TREASURY_PRIVATE_KEY.
+ * LIVE EXECUTOR. The only file in the codebase that reads TREASURY_PRIVATE_KEY, and the only consumer of a key imported
+ * from /admin (decrypted by treasuryWallet.ts on demand). An imported key takes precedence over the env key.
  * Pre-migration: PumpPortal Local Transaction API → checks → sign locally → send via Helius.
  * Post-migration: Jupiter Swap API v2 (/order → checks → sign → /execute); falls back to PumpPortal pool "pump-amm"
  * if Jupiter's route touches a non-whitelisted program.
@@ -18,17 +20,26 @@ const WSOL = "So11111111111111111111111111111111111111112";
 const JUP = "https://api.jup.ag/swap/v2";
 
 let kp: Keypair | null = null;
+let kpVersion = -1;
 function treasuryKeypair(): Keypair {
-  if (kp) return kp;
+  if (kp && kpVersion === treasuryKeyVersion()) return kp;
+  kp = null;
+  const imported = importedTreasuryKeypair();
+  if (imported) {
+    kp = imported;
+    kpVersion = treasuryKeyVersion();
+    return kp;
+  }
   const raw = process.env.TREASURY_PRIVATE_KEY;
   if (!raw) throw new Error("TREASURY_PRIVATE_KEY not set");
   const k = Keypair.fromSecretKey(bs58.decode(raw.trim()));
   if (!env.TREASURY_PUBKEY || k.publicKey.toBase58() !== env.TREASURY_PUBKEY) throw new Error("TREASURY_PRIVATE_KEY does not match TREASURY_PUBKEY");
   kp = k;
+  kpVersion = treasuryKeyVersion();
   return k;
 }
 
-/** Read-only check used by `npm run check:live`: does the private key decode and match TREASURY_PUBKEY? Never signs. */
+/** Read-only check used by `npm run check:live`: does the env private key decode and match TREASURY_PUBKEY? Never signs. */
 export function verifyTreasuryKey(): { ok: boolean; detail: string } {
   try {
     const k = treasuryKeypair();
@@ -39,7 +50,8 @@ export function verifyTreasuryKey(): { ok: boolean; detail: string } {
 }
 
 async function preflight(tx: VersionedTransaction, amountSol: number) {
-  const treasury = env.TREASURY_PUBKEY!;
+  const treasury = treasuryPubkey();
+  if (!treasury) throw new Error("no treasury wallet configured");
   const programs = assertProgramsAllowed(tx);
   assertTreasurySigner(tx, treasury);
   const conn = connection();
@@ -68,7 +80,7 @@ async function confirm(sig: string, timeoutMs = 60_000) {
 async function tokensReceived(sig: string, mint: string): Promise<number | null> {
   try {
     const tx = await connection().getTransaction(sig, { maxSupportedTransactionVersion: 0, commitment: "confirmed" });
-    const owner = env.TREASURY_PUBKEY;
+    const owner = treasuryPubkey();
     type Bal = { mint: string; owner?: string; uiTokenAmount: { uiAmount: number | null } };
     const bal = (arr: Bal[] | null | undefined) => (arr ?? []).filter((b) => b.mint === mint && b.owner === owner).reduce((a, b) => a + Number(b.uiTokenAmount.uiAmount ?? 0), 0);
     return tx?.meta ? bal(tx.meta.postTokenBalances) - bal(tx.meta.preTokenBalances) : null;

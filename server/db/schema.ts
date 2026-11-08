@@ -204,3 +204,17 @@ export const chatMessages = pgTable("chat_messages", {
   inbound: text("inbound").notNull(),
   outbound: text("outbound"),
 });
+
+/**
+ * Treasury key imported from /admin (single row, id = 1). The secret key is AES-256-GCM encrypted with a key derived
+ * from WALLET_ENCRYPTION_KEY, with the pubkey as associated data. Never truncated by sim resets.
+ */
+export const treasuryWallet = pgTable("treasury_wallet", {
+  id: integer("id").primaryKey().default(1),
+  pubkey: text("pubkey").notNull(),
+  salt: text("salt").notNull(),
+  iv: text("iv").notNull(),
+  tag: text("tag").notNull(),
+  ciphertext: text("ciphertext").notNull(),
+  importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+});

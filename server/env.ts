@@ -54,7 +54,9 @@ const schema = z.object({
   LAUNCH_TIMESTAMP: optional,
 
   TREASURY_PUBKEY: optional,
-  // TREASURY_PRIVATE_KEY is deliberately NOT parsed here. Only server/services/executor.ts reads it.
+  // TREASURY_PRIVATE_KEY is deliberately NOT parsed here. Only server/services/adapters/live/executor.ts reads it.
+  /** Encrypts treasury keys imported from /admin (min 32 chars, e.g. `openssl rand -hex 32`). */
+  WALLET_ENCRYPTION_KEY: optional,
 });
 
 const parsed = schema.safeParse(process.env);

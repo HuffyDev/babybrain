@@ -9,6 +9,7 @@ import { env, llmProvider } from "./env";
 import { db, runMigrations } from "./db/client";
 import { timelineFired } from "./db/schema";
 import { loadSettings } from "./services/settings";
+import { loadTreasuryWallet } from "./services/treasuryWallet";
 import { loadCapabilities } from "./services/capabilities";
 import { attachIO, emit } from "./services/events";
 import { loadFired, startEngine } from "./services/engine";
@@ -31,6 +32,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 async function main() {
   await runMigrations();
   await loadSettings();
+  await loadTreasuryWallet();
   await loadCapabilities();
   await loadFired();
   await initAdapters();

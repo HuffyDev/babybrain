@@ -1,6 +1,6 @@
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { env } from "../../../env";
 import { getSettings } from "../../settings";
+import { treasuryPubkey } from "../../treasuryWallet";
 import type { ChainAdapter, Holder, TokenInfo } from "../types";
 import { connection, rpc } from "./rpc";
 import { excludedHolderOwners } from "./market";
@@ -22,7 +22,7 @@ interface DasTokenAccounts {
 /** Helius: token supply, treasury SOL, holders (DAS getTokenAccounts by mint). */
 export const liveChain: ChainAdapter = {
   treasuryAddress() {
-    return env.TREASURY_PUBKEY ?? null;
+    return treasuryPubkey();
   },
 
   async getTokenInfo() {
@@ -44,8 +44,9 @@ export const liveChain: ChainAdapter = {
   },
 
   async getTreasurySol() {
-    if (!env.TREASURY_PUBKEY) return null;
-    const lamports = await connection().getBalance(new PublicKey(env.TREASURY_PUBKEY));
+    const treasury = treasuryPubkey();
+    if (!treasury) return null;
+    const lamports = await connection().getBalance(new PublicKey(treasury));
     return lamports / LAMPORTS_PER_SOL;
   },
 
