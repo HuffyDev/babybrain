@@ -205,7 +205,7 @@ export interface PublicState {
   bars: DevBar[];
   anatomy: AnatomyPart[];
   vitals: Vitals;
-  token: { mint: string | null; name: string | null; symbol: string | null; xHandle: string | null };
+  token: { mint: string | null; name: string | null; symbol: string | null; xHandle: string | null; xAvatarUrl: string | null };
   flags: {
     xPaused: boolean;
     chatPaused: boolean;

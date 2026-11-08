@@ -11,6 +11,7 @@ let writer: TwitterApi | null = null;
 let reader: TwitterApiReadOnly | null = null;
 let handle: string | null = env.X_BOT_HANDLE ?? null;
 let userId: string | null = env.X_BOT_USER_ID ?? null;
+let avatarUrl: string | null = null;
 
 function getWriter(): TwitterApi {
   if (writer) return writer;
@@ -33,26 +34,28 @@ const hasUserCreds = () => !!(env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_
  * Warns (never crashes) if it disagrees with X_BOT_USER_ID / X_BOT_HANDLE, or if the call fails.
  * Returns the warnings so the caller can log them publicly.
  */
-export async function initXIdentity(): Promise<{ id: string | null; handle: string | null; warnings: string[] }> {
+export async function initXIdentity(): Promise<{ id: string | null; handle: string | null; avatarUrl: string | null; warnings: string[] }> {
   const warnings: string[] = [];
   if (!hasUserCreds()) {
     warnings.push("X OAuth 1.0a credentials missing — cannot verify bot identity via /2/users/me; using X_BOT_USER_ID/X_BOT_HANDLE from env");
-    return { id: userId, handle, warnings };
+    return { id: userId, handle, avatarUrl, warnings };
   }
   try {
-    const u = await getWriter().v2.me();
+    const u = await getWriter().v2.me({ "user.fields": ["profile_image_url"] });
     if (env.X_BOT_USER_ID && env.X_BOT_USER_ID !== u.data.id)
       warnings.push(`X_BOT_USER_ID=${env.X_BOT_USER_ID} differs from /2/users/me id ${u.data.id} (@${u.data.username}) — using ${u.data.id}`);
     if (env.X_BOT_HANDLE && env.X_BOT_HANDLE.replace(/^@/, "").toLowerCase() !== u.data.username.toLowerCase())
       warnings.push(`X_BOT_HANDLE=${env.X_BOT_HANDLE} differs from /2/users/me username @${u.data.username} — using @${u.data.username}`);
     userId = u.data.id;
     handle = u.data.username;
+    // X returns the 48px "_normal" variant; ask for the 400px one so it stays sharp on retina screens.
+    avatarUrl = u.data.profile_image_url?.replace(/_normal(\.\w+)$/, "_400x400$1") ?? null;
     identityVerified = true;
     console.log(`[x] authenticated as @${handle} (id ${userId})`);
   } catch (e) {
     warnings.push(`X /2/users/me failed: ${e instanceof Error ? e.message : String(e)} — falling back to X_BOT_USER_ID/X_BOT_HANDLE`);
   }
-  return { id: userId, handle, warnings };
+  return { id: userId, handle, avatarUrl, warnings };
 }
 
 let identityVerified = false;

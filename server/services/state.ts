@@ -12,8 +12,10 @@ import { getSettings } from "./settings";
 
 /** set at boot in live mode from /2/users/me */
 let verifiedXHandle: string | null = null;
-export function setVerifiedXHandle(h: string | null) {
+let xAvatarUrl: string | null = null;
+export function setVerifiedXHandle(h: string | null, avatar: string | null = null) {
   verifiedXHandle = h;
+  xAvatarUrl = avatar;
 }
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
@@ -114,7 +116,7 @@ export async function computeState(): Promise<PublicState> {
       wordsLearned: c.words,
       peopleKnown: c.people,
     },
-    token: { mint: s.tokenMint, name: s.tokenName, symbol: s.tokenSymbol, xHandle: verifiedXHandle ?? env.X_BOT_HANDLE ?? null },
+    token: { mint: s.tokenMint, name: s.tokenName, symbol: s.tokenSymbol, xHandle: verifiedXHandle ?? env.X_BOT_HANDLE ?? null, xAvatarUrl },
     flags: { xPaused: s.xPaused, chatPaused: s.chatPaused, treasuryFrozen: s.treasuryFrozen, autonomyEnabled: s.autonomyEnabled },
     actions: actions.map((a) => ({
       id: a.id, ts: a.ts.toISOString(), type: a.type, status: a.status, amountSol: a.amountSol, txSig: a.txSig,

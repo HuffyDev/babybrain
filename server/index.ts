@@ -46,7 +46,7 @@ async function main() {
   if (!isSim) {
     const { initXIdentity } = await import("./services/adapters/live/x");
     const x = await initXIdentity();
-    setVerifiedXHandle(x.handle);
+    setVerifiedXHandle(x.handle, x.avatarUrl);
     for (const w of x.warnings) {
       console.warn(`[x] ${w}`);
       await emit({ type: "WARNING", source: "SYSTEM", message: w });

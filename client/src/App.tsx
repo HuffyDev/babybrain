@@ -21,6 +21,8 @@ const NAV: [string, string][] = [
 function Header() {
   const connected = useStore((s) => s.connected);
   const xHandle = useStore((s) => s.state?.token.xHandle);
+  const xAvatar = useStore((s) => s.state?.token.xAvatarUrl);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const mode = useStore((s) => s.state?.mode);
   const speed = useStore((s) => s.state?.simSpeed);
   const [open, setOpen] = useState(false);
@@ -79,6 +81,22 @@ function Header() {
             <span className={`dot ${connected ? "dot-live" : ""}`} />
             <span className="hidden sm:inline">{connected ? "Linked" : "Offline"}</span>
           </span>
+          {xHandle && (
+            <a
+              href={xLink}
+              target="_blank"
+              rel="noreferrer"
+              title={`@${xHandle} on X`}
+              aria-label={`@${xHandle} on X`}
+              className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-white/40 bg-black transition hover:border-white"
+            >
+              {xAvatar && !avatarFailed ? (
+                <img src={xAvatar} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} />
+              ) : (
+                <span className="font-mono text-[12px] text-ink uppercase">{xHandle.replace(/^@/, "").charAt(0)}</span>
+              )}
+            </a>
+          )}
           <button className="btn h-9 min-h-0 w-9 px-0 xl:hidden" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen((v) => !v)}>
             <Icon name={open ? "close" : "menu"} />
           </button>
